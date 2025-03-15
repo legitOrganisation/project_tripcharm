@@ -1354,7 +1354,7 @@
 		)
 		(embedded_fonts no)
 	)
-	(symbol "TPS61023DRLT"
+	(symbol "TPS61023DRLR"
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
@@ -1367,7 +1367,7 @@
 				(justify left top)
 			)
 		)
-		(property "Value" "TPS61023DRLT"
+		(property "Value" "TPS61023DRLR"
 			(at 24.13 5.08 0)
 			(effects
 				(font
@@ -1386,7 +1386,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" "http://www.ti.com/general/docs/suppproductinfo.tsp?distId=10&gotoUrl=http%3A%2F%2Fwww.ti.com%2Flit%2Fgpn%2Ftps61023"
+		(property "Datasheet" "http://www.ti.com/lit/ds/symlink/tps61023.pdf"
 			(at 24.13 -194.92 0)
 			(effects
 				(font
@@ -1415,7 +1415,7 @@
 				(hide yes)
 			)
 		)
-		(property "Mouser Part Number" "595-TPS61023DRLT"
+		(property "Mouser Part Number" "595-TPS61023DRLR"
 			(at 24.13 -494.92 0)
 			(effects
 				(font
@@ -1425,7 +1425,7 @@
 				(hide yes)
 			)
 		)
-		(property "Mouser Price/Stock" "https://www.mouser.co.uk/ProductDetail/Texas-Instruments/TPS61023DRLT?qs=BJlw7L4Cy78Zr3IJIU3gNw%3D%3D"
+		(property "Mouser Price/Stock" "https://www.mouser.co.uk/ProductDetail/Texas-Instruments/TPS61023DRLR?qs=BJlw7L4Cy7%2FfEnwYuWeGOg%3D%3D"
 			(at 24.13 -594.92 0)
 			(effects
 				(font
@@ -1445,7 +1445,7 @@
 				(hide yes)
 			)
 		)
-		(property "Manufacturer_Part_Number" "TPS61023DRLT"
+		(property "Manufacturer_Part_Number" "TPS61023DRLR"
 			(at 24.13 -794.92 0)
 			(effects
 				(font
@@ -1455,7 +1455,7 @@
 				(hide yes)
 			)
 		)
-		(symbol "TPS61023DRLT_1_1"
+		(symbol "TPS61023DRLR_1_1"
 			(rectangle
 				(start 5.08 2.54)
 				(end 22.86 -7.62)
