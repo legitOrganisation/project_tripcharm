@@ -1176,7 +1176,7 @@
 		(symbol "DFROBOT_SEN0487_0_1"
 			(rectangle
 				(start -6.35 7.62)
-				(end 6.35 -7.62)
+				(end 6.35 -8.89)
 				(stroke
 					(width 0)
 					(type default)
