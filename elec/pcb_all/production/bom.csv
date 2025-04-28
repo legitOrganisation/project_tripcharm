@@ -1,43 +1,42 @@
-﻿Designator,Footprint,Quantity,Value,LCSC Part #
-B1,PUI_HD-EMC1003-3-LW27,1,HD-EMC1003-3-LW27,
-BT1,JST_XH_B2B-XH-A_1x02_P2.50mm_Vertical,1,Battery_Cell,
-C1,1206,1,4.7uF,
-"C10, C13, C15, C20, C3, C8",1206,6,22uF,
-"C11, C16, C4, C9",1206,4,10uF,
-"C12, C5",0603,2,1uF,
-"C14, C18, C19, C21, C22, C6, C7",0603,7,100nF,
-"C17, C2",0603,2,0.1uF,
-"D1, D5",SODFL1608X70N,2,ESD7351XV2T1G,
-"D10, D7, D8",DIOM5127X229N,3,SS14-M3_5AT,
-"D2, D3, D4, D6",0603,4,LED,
-IC1,SOTFL50P160X60-8N,1,TPS629203QDRLRQ1,
-IC2,AP63203WU7,1,AP63203WU-7,
-IC3,SON50P200X200X80-9N,1,BQ25176MDSGR,
-IC4,SOTFL50P160X60-6N,1,TPS61023DRLR,
-IC5,BMP390,1,BMP390,
-IC6,LSM6DSLTR,1,LSM6DSLTR,
-J1,JST_XH_B2B-XH-A_1x02_P2.50mm_Vertical,1,Conn_01x02,
-J2,PinHeader_1x07_P2.54mm_Vertical,1,Conn_01x07,
-L1,1008,1,2.2uH,
-L2,1008,1,4.7uH,
-L3,1008,1,1uH,
-"Q1, Q2",CSD16301Q2,2,CSD16301Q2,
-Q3,SOT95P237X112-3N,1,IRLML6344TRPBF,
-R1,0603,1,34k,
-"R10, R12, R18, R20, R23, R9",0603,6,10k,
-"R11, R17",0603,2,680R,
-R13,0603,1,604,
-R14,0603,1,24.3k,
-R15,0603,1,732k,
-R16,0603,1,100k,
-R19,0603,1,1k,
-"R2, R22, R4",0603,3,4.7k,
-R21,0603,1,100R,
-R3,0603,1,R330,
-R5,0603,1,64.9k,
-"R6, R7",0603,2,5.1M,
-R8,0603,1,2.2K,
-"TP1, TP3, TP6, TP7, TP8",PinHeader_1x02_P2.54mm_Vertical,5,TestPoint_2Pole,
-"TP2, TP4, TP5",PinHeader_1x01_P2.54mm_Vertical,3,TestPoint,
-U1,SON50P150X150X80-6N,1,BQ29700DSER,
-U2,Xiao_ESP32-C3,1,Xiao_ESP32-C3,
+"Reference","Value","Footprint","Datasheet","Qty","DNP","LCSC Part #"
+"B1","HD-EMC1003-3-LW27","footprints:PUI_HD-EMC1003-3-LW27","kicad-embed://HD_EMC1003_3_LW27-3554771.pdf","1","DNP",""
+"BT1","Battery_Cell","Connector_JST:JST_XH_B2B-XH-A_1x02_P2.50mm_Vertical","~","1","DNP",""
+"C1","4.7uF","Capacitor_SMD:C_1206_3216Metric","~","1","","C967600"
+"C2,C6,C7,C14,C17,C18,C19,C21,C22","100nF","Capacitor_SMD:C_0603_1608Metric","~","9","","C19702"
+"C3,C8,C10,C13,C15,C20","22uF","Capacitor_SMD:C_1206_3216Metric","~","6","","C1859"
+"C4,C9,C11,C16","10uF","Capacitor_SMD:C_1206_3216Metric","~","4","","C157351"
+"C5,C12","1uF","Capacitor_SMD:C_0603_1608Metric","~","2","","C111590"
+"D1,D5","ESD7351XV2T1G","footprints:SODFL1608X70N","kicad-embed://ESD7351-D.PDF","2","","C2912559"
+"D2,D3,D4,D6","LED","Capacitor_SMD:C_0603_1608Metric","~","4","","C965799"
+"D7,D8,D10","SS14-M3_5AT","footprints:DIOM5127X229N","kicad-embed://ss12.pdf","3","","C83852"
+"IC1","TPS629203QDRLRQ1","footprints:SOTFL50P160X60-8N","kicad-embed://tps629203-q1.pdf","1","","C5219284"
+"IC2","AP63203WU-7","footprints:AP63203WU7","kicad-embed://AP63200-AP63201-AP63203-AP63205.pdf","1","","C780769"
+"IC3","BQ25176MDSGR","footprints:SON50P200X200X80-9N","kicad-embed://bq25176m.pdf","1","","C5366192"
+"IC4","TPS61023DRLR","footprints:SOTFL50P160X60-6N","kicad-embed://tps61023.pdf","1","","C919459"
+"IC5","BMP390","footprints:BMP390","kicad-embed://bst_bmp390_ds002-2448819.pdf","1","","C2684802"
+"IC6","LSM6DSLTR","footprints:LSM6DSLTR","kicad-embed://lsm6dsl-1509291.pdf","1","","C126672"
+"J1","Conn_01x02","Connector_JST:JST_XH_B2B-XH-A_1x02_P2.50mm_Vertical","https://www.aliexpress.com/item/1005002493801449.html?spm=a2g0o.productlist.main.13.71bc2WGo2WGoUx&algo_pvid=aea5641f-3c5e-4212-8f1c-0c4d98a03420&algo_exp_id=aea5641f-3c5e-4212-8f1c-0c4d98a03420-20&pdp_ext_f=%7B%22order%22%3A%2236%22%2C%22eval%22%3A%221%22%7D&pdp_npi=4%40dis%21SGD%211.85%211.26%21%21%211.35%210.92%21%402151e66217418345010532155e7fcf%2112000021383265982%21sea%21SG%216083515186%21X&curPageLogUid=Q1MuyvKikosA&utparam-url=scene%3Asearch%7Cquery_from%3A","1","DNP",""
+"J2","Conn_01x07","Connector_PinHeader_2.54mm:PinHeader_1x07_P2.54mm_Vertical","~","1","DNP",""
+"L1","2.2uH","Inductor_SMD:L_1008_2520Metric","~","1","","C19633987"
+"L2","4.7uH","Inductor_SMD:L_1008_2520Metric","~","1","","C6808077"
+"L3","1uH","Inductor_SMD:L_1008_2520Metric","~","1","","C6808074"
+"Q1,Q2","CSD16301Q2","footprints:CSD16301Q2","kicad-embed://csd16301q2.pdf","2","","C140340"
+"Q3","IRLML6344TRPBF","footprints:SOT95P237X112-3N","kicad-embed://Infineon_IRLML6344_DataSheet_v01_01_EN-3363406.pdf","1","","C53550"
+"R1","34k","Resistor_SMD:R_0603_1608Metric","~","1","","C321865"
+"R2,R4,R22","4.7k","Resistor_SMD:R_0603_1608Metric","~","3","","C3017722"
+"R3","R330","Resistor_SMD:R_0603_1608Metric","~","1","","C2907152"
+"R5","64.9k","Resistor_SMD:R_0603_1608Metric","~","1","","C14891"
+"R6,R7","5.1M","Resistor_SMD:R_0603_1608Metric","~","2","","C2907175"
+"R8","2.2K","Resistor_SMD:R_0603_1608Metric","~","1","","C2907117"
+"R9,R10,R12,R18,R20,R23","10k","Resistor_SMD:R_0603_1608Metric","~","6","","C2930027"
+"R11,R17","680R","Resistor_SMD:R_0603_1608Metric","~","2","","C2907195"
+"R13","604R","Resistor_SMD:R_0603_1608Metric","~","1","","C2930123"
+"R14","24.3k","Resistor_SMD:R_0603_1608Metric","~","1","","C2930079"
+"R15","732k","Resistor_SMD:R_0603_1608Metric","~","1","","C5159703"
+"R16","100k","Resistor_SMD:R_0603_1608Metric","~","1","","C2907088"
+"R19","1k","Resistor_SMD:R_0603_1608Metric","~","1","","C2907113"
+"R21","100R","Resistor_SMD:R_0603_1608Metric","~","1","","C3017758"
+"TP1,TP3,TP6,TP7,TP8","TestPoint_2Pole","Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical","~","5","DNP",""
+"TP2,TP4,TP5","TestPoint","Connector_PinHeader_2.54mm:PinHeader_1x01_P2.54mm_Vertical","~","3","DNP",""
+"U1","BQ29700DSER","footprints:SON50P150X150X80-6N","kicad-embed://bq2970.pdf","1","","C183096"
+"U2","Xiao_ESP32-C3","footprints:Xiao_ESP32-C3","kicad-embed://Seeed-Studio-XIAO-Series-SOM-Datasheet.pdf","1","DNP",""
