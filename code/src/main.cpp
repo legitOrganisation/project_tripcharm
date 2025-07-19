@@ -21,35 +21,35 @@
 //   }
 // }
 
-#include <Arduino.h>
-#include <Wire.h>
-#include <Adafruit_LSM6DS3TRC.h>
+// #include <Arduino.h>
+// #include <Wire.h>
+// #include <Adafruit_LSM6DS3TRC.h>
 
-Adafruit_LSM6DS3TRC imu;
+// Adafruit_LSM6DS3TRC imu;
 
-void setup() {
-  Serial.begin(115200);
+// void setup() {
+//   Serial.begin(115200);
 
-  Wire.begin(D4, D5);
+//   Wire.begin(D4, D5);
 
-  while (!imu.begin_I2C(0x6A, &Wire)) {
-    Serial.println("Failed to find LSM6DSL");
-  }
+//   while (!imu.begin_I2C(0x6A, &Wire)) {
+//     Serial.println("Failed to find LSM6DSL");
+//   }
 
-  Serial.println("LSM6DSL initialized.");
-}
+//   Serial.println("LSM6DSL initialized.");
+// }
 
-void loop() {
-  Serial.println("test");
+// void loop() {
+//   Serial.println("test");
 
-  sensors_event_t accel, gyro, temp;
-  imu.getEvent(&accel, &gyro, &temp);
+//   sensors_event_t accel, gyro, temp;
+//   imu.getEvent(&accel, &gyro, &temp);
 
-  Serial.printf("Accel [m/s^2] X: %.2f Y: %.2f Z: %.2f\n", accel.acceleration.x, accel.acceleration.y, accel.acceleration.z);
-  Serial.printf("Gyro [rad/s]   X: %.2f Y: %.2f Z: %.2f\n\n", gyro.gyro.x, gyro.gyro.y, gyro.gyro.z);
+//   Serial.printf("Accel [m/s^2] X: %.2f Y: %.2f Z: %.2f\n", accel.acceleration.x, accel.acceleration.y, accel.acceleration.z);
+//   Serial.printf("Gyro [rad/s]   X: %.2f Y: %.2f Z: %.2f\n\n", gyro.gyro.x, gyro.gyro.y, gyro.gyro.z);
 
-  delay(500);
-}
+//   delay(500);
+// }
 
 // #include <Arduino.h>
 // #include <Wire.h>
@@ -107,4 +107,19 @@ void loop() {
 //   Serial.println("Scan complete.");
 // }
 
-// void loop() {}
+#include <Arduino.h>
+#include <Wire.h>
+
+#define PULSE_PIN D3  // D3 on XIAO ESP32-C3 = GPIO7
+
+void setup() {
+  pinMode(PULSE_PIN, OUTPUT);
+}
+
+void loop() {
+  digitalWrite(PULSE_PIN, HIGH);
+  delay(200);  // HIGH for 100 ms
+
+  digitalWrite(PULSE_PIN, LOW);
+  delay(200);  // LOW for 100 ms
+}
