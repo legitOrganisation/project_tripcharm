@@ -28,7 +28,7 @@ TestPoint_2Pole,,PinHeader_1x02_P2.54mm_Vertical,,0
 10uF,C1,C_1206_3216Metric,,1
 Battery_Cell,,JST_SH_BM02B-SRSS-TB_1x02-1MP_P1.00mm_Vertical,,0
 732k,R1,R_0603_1608Metric,,1
-Conn_01x02,,PinHeader_1x02_P1.00mm_Vertical,,0
+Conn_01x02,,PinHeader_1x02_P2.54mm_Vertical,,0
 TestPoint,,PinHeader_1x01_P2.54mm_Vertical,,0
 TestPoint_2Pole,,PinHeader_1x02_P2.54mm_Vertical,,0
 TestPoint,,PinHeader_1x01_P2.54mm_Vertical,,0
