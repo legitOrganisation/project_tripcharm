@@ -9,8 +9,8 @@
 	(paper "A4")
 	(title_block
 		(title "tripcharm PCB")
-		(date "2025-07-19")
-		(rev "1")
+		(date "2025-07-21")
+		(rev "2")
 		(company "Ng Chen-Xuan")
 	)
 	(layers
