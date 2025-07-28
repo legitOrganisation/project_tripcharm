@@ -51,8 +51,8 @@
 //   delay(500);
 // }
 
-// #include <Arduino.h>
-// #include <Wire.h>
+#include <Arduino.h>
+#include <Wire.h>
 // #include <Adafruit_BMP3XX.h>
 
 // Adafruit_BMP3XX bmp;
@@ -89,37 +89,42 @@
 // }
 
 
-// void setup() {
-//   Wire.begin();  // SDA = GPIO6, SCL = GPIO7 on XIAO ESP32C3
-//   Serial.begin(115200);
-  
-//   delay(10000);
-
-//   Serial.println("I2C Scanner:");
-//   for (uint8_t address = 1; address < 127; ++address) {
-//     Wire.beginTransmission(address);
-//     if (Wire.endTransmission() == 0) {
-//       Serial.print("Found I2C device at 0x");
-//       Serial.println(address, HEX);
-//       delay(10);
-//     }
-//   }
-//   Serial.println("Scan complete.");
-// }
-
-#include <Arduino.h>
-#include <Wire.h>
-
-#define PULSE_PIN D3  // D3 on XIAO ESP32-C3 = GPIO7
-
 void setup() {
-  pinMode(PULSE_PIN, OUTPUT);
+  Wire.begin();  // SDA = GPIO6, SCL = GPIO7 on XIAO ESP32C3
+  Serial.begin(115200);
+  
+  delay(5000);
+
+  Serial.println("I2C Scanner:");
+  for (uint8_t address = 1; address < 127; ++address) {
+    Wire.beginTransmission(address);
+    Serial.println(address);
+    if (Wire.endTransmission() == 0) {
+      Serial.print("Found I2C device at 0x");
+      Serial.println(address, HEX);
+      delay(10);
+    }
+  }
+  Serial.println("Scan complete.");
 }
 
 void loop() {
-  digitalWrite(PULSE_PIN, HIGH);
-  delay(200);  // HIGH for 100 ms
 
-  digitalWrite(PULSE_PIN, LOW);
-  delay(200);  // LOW for 100 ms
 }
+
+// #include <Arduino.h>
+// #include <Wire.h>
+
+// #define PULSE_PIN D3  // D3 on XIAO ESP32-C3 = GPIO7
+
+// void setup() {
+//   pinMode(PULSE_PIN, OUTPUT);
+// }
+
+// void loop() {
+//   digitalWrite(PULSE_PIN, HIGH);
+//   delay(200);  // HIGH for 100 ms
+
+//   digitalWrite(PULSE_PIN, LOW);
+//   delay(200);  // LOW for 100 ms
+// }
