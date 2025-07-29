@@ -51,8 +51,8 @@
 //   delay(500);
 // }
 
-#include <Arduino.h>
-#include <Wire.h>
+// #include <Arduino.h>
+// #include <Wire.h>
 // #include <Adafruit_BMP3XX.h>
 
 // Adafruit_BMP3XX bmp;
@@ -89,42 +89,157 @@
 // }
 
 
-void setup() {
-  Wire.begin();  // SDA = GPIO6, SCL = GPIO7 on XIAO ESP32C3
-  Serial.begin(115200);
+// void setup() {
+//   Wire.begin();  // SDA = GPIO6, SCL = GPIO7 on XIAO ESP32C3
+//   Serial.begin(115200);
   
-  delay(5000);
+//   delay(5000);
 
-  Serial.println("I2C Scanner:");
-  for (uint8_t address = 1; address < 127; ++address) {
-    Wire.beginTransmission(address);
-    Serial.println(address);
-    if (Wire.endTransmission() == 0) {
-      Serial.print("Found I2C device at 0x");
-      Serial.println(address, HEX);
-      delay(10);
-    }
-  }
-  Serial.println("Scan complete.");
+//   Serial.println("I2C Scanner:");
+//   for (uint8_t address = 1; address < 127; ++address) {
+//     Wire.beginTransmission(address);
+//     Serial.println(address);
+//     if (Wire.endTransmission() == 0) {
+//       Serial.print("Found I2C device at 0x");
+//       Serial.println(address, HEX);
+//       delay(10);
+//     }
+//   }
+//   Serial.println("Scan complete.");
+// }
+
+// void loop() {
+//   for (uint8_t address = 1; address < 127; ++address) {
+//     Wire.beginTransmission(address);
+//     // Serial.println(address);
+//     if (Wire.endTransmission() == 0) {
+//       Serial.print("Found I2C device at 0x");
+//       Serial.println(address, HEX);
+//       delay(5);
+//     }
+//   }
+//   Serial.println("passed");
+// }
+
+#include <Arduino.h>
+#include <Wire.h>
+
+#define PULSE_PIN D3  // D3 on XIAO ESP32-C3 = GPIO7
+
+void setup() {
+  pinMode(PULSE_PIN, OUTPUT);
 }
 
 void loop() {
+  digitalWrite(PULSE_PIN, HIGH);
+  delay(200);  // HIGH for 100 ms
 
+  digitalWrite(PULSE_PIN, LOW);
+  delay(200);  // LOW for 100 ms
 }
 
 // #include <Arduino.h>
 // #include <Wire.h>
 
-// #define PULSE_PIN D3  // D3 on XIAO ESP32-C3 = GPIO7
+// // Customize these if needed (XIAO default I²C = D4/D5 → GPIO4/GPIO5)
+// #define SDA_PIN 4
+// #define SCL_PIN 5
+
+// void scanI2C() {
+//   byte address;
+//   int count = 0;
+
+//   for (address = 1; address < 127; address++) {
+//     Wire.beginTransmission(address);
+//     byte error = Wire.endTransmission();
+
+//     if (error == 0) {
+//       Serial.print("I2C device found at 0x");
+//       if (address < 16) Serial.print("0");
+//       Serial.println(address, HEX);
+//       count++;
+//     } else if (error == 4) {
+//       Serial.print("Unknown error at 0x");
+//       if (address < 16) Serial.print("0");
+//       Serial.println(address, HEX);
+//     }
+//   }
+
+//   if (count == 0) {
+//     Serial.println("No I2C devices found.");
+//   } else {
+//     Serial.print("Scan complete. Devices found: ");
+//     Serial.println(count);
+//   }
+// }
 
 // void setup() {
-//   pinMode(PULSE_PIN, OUTPUT);
+//   Serial.begin(115200);
+//   delay(5000); // Let Serial stabilize
+
+//   Serial.println("Starting I2C Scanner...");
+//   Wire.begin(SDA_PIN, SCL_PIN);
+//   Wire.setClock(100000); // 100kHz for max compatibility
+
+//   delay(100); // Let bus stabilize
+
+//   scanI2C();
 // }
 
 // void loop() {
-//   digitalWrite(PULSE_PIN, HIGH);
-//   delay(200);  // HIGH for 100 ms
+//   // Do nothing — scan once only
+// }
 
-//   digitalWrite(PULSE_PIN, LOW);
-//   delay(200);  // LOW for 100 ms
+// #include <Arduino.h>
+// #include <Wire.h>
+// #include <Adafruit_LSM6DS.h>
+
+// Adafruit_LSM6DS lsm6ds;
+
+// void setup() {
+//   Serial.begin(115200);
+//   delay(500);
+//   Serial.println("LSM6DSL I2C Test");
+
+//   // Use GPIO4 (SDA), GPIO5 (SCL) — XIAO ESP32C3
+//   Wire.begin(4, 5);
+//   Wire.setClock(100000);  // Optional: set I2C speed
+
+//   // Try address 0x6A (SDO tied LOW). Use 0x6B if SDO is HIGH.
+//   while (!lsm6ds.begin_I2C(0x6A)) {
+//     Serial.println("Could not find LSM6DSL sensor, check wiring!");
+//     delay(500);
+//   }
+
+//   Serial.println("LSM6DSL found!");
+
+//   // Optional sensor config
+//   lsm6ds.setAccelRange(LSM6DS_ACCEL_RANGE_4_G);
+//   lsm6ds.setGyroRange(LSM6DS_GYRO_RANGE_250_DPS);
+//   lsm6ds.setAccelDataRate(LSM6DS_RATE_104_HZ);
+//   lsm6ds.setGyroDataRate(LSM6DS_RATE_104_HZ);
+// }
+
+// void loop() {
+//   sensors_event_t accel, gyro, temp;
+
+//   if (lsm6ds.getEvent(&accel, &gyro, &temp)) {
+//     Serial.print("Temperature: ");
+//     Serial.print(temp.temperature);
+//     Serial.println(" °C");
+
+//     Serial.print("Accel X: "); Serial.print(accel.acceleration.x);
+//     Serial.print(" Y: "); Serial.print(accel.acceleration.y);
+//     Serial.print(" Z: "); Serial.println(accel.acceleration.z);
+
+//     Serial.print("Gyro X: "); Serial.print(gyro.gyro.x);
+//     Serial.print(" Y: "); Serial.print(gyro.gyro.y);
+//     Serial.print(" Z: "); Serial.println(gyro.gyro.z);
+
+//     Serial.println();
+//   } else {
+//     Serial.println("Failed to read IMU data.");
+//   }
+
+//   delay(500);
 // }
