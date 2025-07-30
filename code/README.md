@@ -19,6 +19,6 @@
 
 ## Build
 
-```bash
+```bashz
 pio run
 pio upload
