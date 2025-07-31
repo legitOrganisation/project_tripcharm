@@ -1,7 +1,3 @@
-// #include <Arduino.h>
-// #include <Wire.h>
-// #include <Adafruit_BNO08x.h>
-
 #include <Arduino.h>
 
 // Button test sketch for D10 (Button A) and D0 (Button B)
