@@ -2,8 +2,8 @@
 
 // Button test sketch for D10 (Button A) and D0 (Button B)
 
-#define BUTTON_A_PIN 10  // D10
-#define BUTTON_B_PIN 0   // D0
+#define BUTTON_A_PIN D10  // D10
+#define BUTTON_B_PIN D0   // D0
 
 void setup() {
   Serial.begin(115200);
