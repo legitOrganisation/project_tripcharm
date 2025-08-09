@@ -1,17 +1,9 @@
-
 const express = require('express');
 const fs = require('fs');
 const app = express();
 const cors = require('cors');
 const PORT = 3000;
 
-app.use(cors({
-  origin: '*',
-  methods: ['GET','POST'],
-  allowedHeaders: ['Content-Type']
-}));
-
-const cors = require('cors');
 app.use(cors()); // allow all origins
 
 // Middleware
