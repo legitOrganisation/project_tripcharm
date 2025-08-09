@@ -1,5 +1,6 @@
 const gpsUrl = "http://ma8w.ddns.net:3000/api/download/gps";
 const battUrl = "http://ma8w.ddns.net:3000/api/download/batt-percentage";
+const vibrateUrl = "http://ma8w.ddns.net:3000/api/upload/command";
 
 function parseGpsString(gpsStr) {
   const parts = gpsStr.trim().split(",");
@@ -15,7 +16,6 @@ async function updateData() {
   try {
     // --- GPS ---
     const gpsRes = await fetch(gpsUrl);
-    if (!gpsRes.ok) throw new Error(`GPS HTTP ${gpsRes.status}`);
     const gpsArray = await gpsRes.json();
     if (Array.isArray(gpsArray) && gpsArray.length > 0) {
       const latestGPS = gpsArray[gpsArray.length - 1];
@@ -35,7 +35,6 @@ async function updateData() {
 
     // --- Battery ---
     const battRes = await fetch(battUrl);
-    if (!battRes.ok) throw new Error(`Batt HTTP ${battRes.status}`);
     const battArray = await battRes.json();
     if (Array.isArray(battArray) && battArray.length > 0) {
       const latestBatt = battArray[battArray.length - 1];
@@ -48,7 +47,26 @@ async function updateData() {
   }
 }
 
+async function sendVibrateCommand() {
+  try {
+    const res = await fetch(vibrateUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ command: "vibrate" })
+    });
+    const text = await res.text();
+    alert(`Vibrate command sent: ${text}`);
+  } catch (err) {
+    console.error("Error sending vibrate command:", err);
+    alert("Failed to send vibrate command.");
+  }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
+  // Start updating GPS and battery
   updateData();
   setInterval(updateData, 5000);
+
+  // Vibrate button listener
+  document.getElementById('vibrate').addEventListener('click', sendVibrateCommand);
 });
