@@ -9,3 +9,5 @@ server/events.json
 server/commands.json
 server/events.log
 *.iml
+server/events.log
+server/queues.json
