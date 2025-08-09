@@ -1,6 +1,7 @@
 const gpsUrl = "http://ma8w.ddns.net:3000/api/download/gps";
 const battUrl = "http://ma8w.ddns.net:3000/api/download/batt-percentage";
 const commandUrl = "http://ma8w.ddns.net:3000/api/upload/command";
+const eventsUrl = "http://ma8w.ddns.net:3000/api/download/events";
 
 function parseGpsString(gpsStr) {
   const parts = gpsStr.trim().split(",");
@@ -10,6 +11,27 @@ function parseGpsString(gpsStr) {
   if (parts[1] === "S") lat *= -1;
   if (parts[3] === "W") lon *= -1;
   return { lat, lon };
+}
+
+async function updateEvents() {
+  try {
+    const res = await fetch(eventsUrl);
+    if (!res.ok) throw new Error(`Events HTTP ${res.status}`);
+    const eventsArray = await res.json();
+    const eventList = document.getElementById('event-list');
+    eventList.innerHTML = ""; // Clear old entries
+    if (Array.isArray(eventsArray) && eventsArray.length > 0) {
+      eventsArray.slice().reverse().forEach(ev => {
+        const li = document.createElement('li');
+        li.textContent = `[${new Date(ev.timestamp).toLocaleTimeString()}] ${ev.type.toUpperCase()} ${ev.gps ? `@ ${ev.gps}` : ""}`;
+        eventList.appendChild(li);
+      });
+    } else {
+      eventList.innerHTML = "<li>No events recorded</li>";
+    }
+  } catch (err) {
+    console.error("Error fetching events:", err);
+  }
 }
 
 async function updateData() {

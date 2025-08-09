@@ -1,16 +1,22 @@
 const express = require('express');
-const fs = require('fs');
-const app = express();
 const cors = require('cors');
+const fs = require('fs');
+
+const app = express();
 const PORT = 3000;
 
-app.use(cors()); // allow all origins
+// --- Enable CORS for all origins ---
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST'],
+  allowedHeaders: ['Content-Type']
+}));
 
-// Middleware
+// --- Middleware ---
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
-// Helper: Log with timestamp
+// --- Logging helper ---
 function logWithTime(...args) {
   const timestamp = new Date().toISOString();
   const log = `[${timestamp}] ${args.join(" ")}`;
@@ -18,12 +24,13 @@ function logWithTime(...args) {
   fs.appendFileSync('events.log', log + '\n');
 }
 
-// Persistent storage initialization
+// --- Persistent storage ---
 let queues = {
   gps: [],
   commands: [],
   battPercentage: [],
-  geofencingData: []
+  geofencingData: [],
+  events: [] // New: store device events like falls
 };
 
 try {
@@ -39,6 +46,8 @@ function saveQueues() {
 }
 
 // ---------- UPLOAD ROUTES ----------
+
+// GPS upload
 app.post('/api/upload/gps', (req, res) => {
   const gps = req.body.gps;
   if (gps) {
@@ -51,6 +60,7 @@ app.post('/api/upload/gps', (req, res) => {
   }
 });
 
+// Command upload
 app.post('/api/upload/command', (req, res) => {
   const command = req.body.command;
   if (command) {
@@ -63,6 +73,7 @@ app.post('/api/upload/command', (req, res) => {
   }
 });
 
+// Battery percentage upload
 app.post('/api/upload/batt-percentage', (req, res) => {
   const percentage = req.body.percentage;
   if (percentage !== undefined) {
@@ -75,6 +86,7 @@ app.post('/api/upload/batt-percentage', (req, res) => {
   }
 });
 
+// Geofencing data upload
 app.post('/api/upload/geofencing-data', (req, res) => {
   const data = req.body.data;
   if (data) {
@@ -87,28 +99,56 @@ app.post('/api/upload/geofencing-data', (req, res) => {
   }
 });
 
+// Event upload (e.g., falls)
+app.post('/api/upload/event', (req, res) => {
+  const { type, gps } = req.body;
+  if (!type) {
+    return res.status(400).send("No event type provided");
+  }
+  const event = {
+    type,
+    gps: gps || null,
+    timestamp: new Date().toISOString()
+  };
+  queues.events.push(event);
+  saveQueues();
+  logWithTime("Event uploaded:", JSON.stringify(event));
+  res.send("Event uploaded");
+});
+
 // ---------- DOWNLOAD ROUTES ----------
+
+// GPS download
 app.get('/api/download/gps', (req, res) => {
   logWithTime("GPS data downloaded");
   res.json(queues.gps);
 });
 
+// Commands download
 app.get('/api/download/command', (req, res) => {
   logWithTime("Command data downloaded");
   res.json(queues.commands);
 });
 
+// Battery percentage download
 app.get('/api/download/batt-percentage', (req, res) => {
   logWithTime("Battery percentage data downloaded");
   res.json(queues.battPercentage);
 });
 
+// Geofencing data download
 app.get('/api/download/geofencing-data', (req, res) => {
   logWithTime("Geofencing data downloaded");
   res.json(queues.geofencingData);
 });
 
-// Start server
+// Events download
+app.get('/api/download/events', (req, res) => {
+  logWithTime("Events downloaded");
+  res.json(queues.events);
+});
+
+// ---------- START SERVER ----------
 app.listen(PORT, () => {
   logWithTime(`API server running at http://localhost:${PORT}`);
 });
