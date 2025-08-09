@@ -1,0 +1,55 @@
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+}
+
+#top-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  background-color: #2c3e50;
+  color: white;
+  padding: 10px;
+}
+
+.widget {
+  margin-right: 15px;
+}
+
+.widget input {
+  width: 50px;
+}
+
+.widget button {
+  margin-left: 5px;
+}
+
+#map-container {
+  height: calc(100vh - 60px);
+  width: 100%;
+}
+
+gmp-map {
+  height: 100%;
+  width: 100%;
+}
+
+/* Info panel styles */
+#info-panel {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  background: white;
+  border-top: 2px solid #ccc;
+  padding: 15px;
+  box-shadow: 0 -2px 8px rgba(0,0,0,0.1);
+}
+
+#info-panel.hidden {
+  display: none;
+}
+
+#info-panel h2 {
+  margin-top: 0;
+}
