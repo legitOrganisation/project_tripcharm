@@ -1,0 +1,7 @@
+tripcharm-ver4/node_modules/
+tripcharm-ver4/android/.gradle/
+tripcharm-ver4/android/.idea/
+tripcharm-ver4/android/build/
+tripcharm-ver4/ios/Pods/
+tripcharm-ver4/ios/build/
+*.iml
