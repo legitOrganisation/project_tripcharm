@@ -1,6 +1,6 @@
 const gpsUrl = "http://ma8w.ddns.net:3000/api/download/gps";
 const battUrl = "http://ma8w.ddns.net:3000/api/download/batt-percentage";
-const vibrateUrl = "http://ma8w.ddns.net:3000/api/upload/command";
+const commandUrl = "http://ma8w.ddns.net:3000/api/upload/command";
 
 function parseGpsString(gpsStr) {
   const parts = gpsStr.trim().split(",");
@@ -47,18 +47,17 @@ async function updateData() {
   }
 }
 
-async function sendVibrateCommand() {
+async function sendCommand(cmd) {
   try {
-    const res = await fetch(vibrateUrl, {
+    const res = await fetch(commandUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ command: "vibrate" })
+      body: JSON.stringify({ command: cmd })
     });
     const text = await res.text();
-    alert(`Vibrate command sent: ${text}`);
+    console.log(`Command sent: ${cmd} → ${text}`);
   } catch (err) {
-    console.error("Error sending vibrate command:", err);
-    alert("Failed to send vibrate command.");
+    console.error("Error sending command:", err);
   }
 }
 
@@ -68,5 +67,18 @@ document.addEventListener('DOMContentLoaded', () => {
   setInterval(updateData, 5000);
 
   // Vibrate button listener
-  document.getElementById('vibrate').addEventListener('click', sendVibrateCommand);
+  document.getElementById('vibrate').addEventListener('click', () => {
+    sendCommand("vibrate");
+  });
+
+  // Fall detect button listener
+  document.getElementById('set-fall').addEventListener('click', () => {
+    const fallValue = document.getElementById('fall').value;
+    if (fallValue >= 1 && fallValue <= 100) {
+      sendCommand(`set-fall:${fallValue}`);
+      alert(`Fall detection strength set to ${fallValue}`);
+    } else {
+      alert("Please enter a value between 1 and 100.");
+    }
+  });
 });
