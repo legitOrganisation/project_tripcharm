@@ -69,6 +69,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Vibrate button listener
   document.getElementById('vibrate').addEventListener('click', () => {
     sendCommand("vibrate");
+    alert("Vibrate command sent.")
   });
 
   // Fall detect button listener
