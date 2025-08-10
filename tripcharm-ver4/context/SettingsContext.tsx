@@ -1,3 +1,4 @@
+// context/SettingsContext.tsx
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
@@ -5,7 +6,7 @@ type Settings = {
   darkMode: boolean;
   notificationsEnabled: boolean;
   fallSensitivity: "Low" | "Medium" | "High";
-  locationUpdateInterval: number; // new: device update interval in seconds
+  locationUpdateInterval: number; // in seconds
   setDarkMode: (val: boolean) => void;
   setNotificationsEnabled: (val: boolean) => void;
   setFallSensitivity: (val: "Low" | "Medium" | "High") => void;
@@ -18,7 +19,7 @@ const defaultSettings = {
   darkMode: false,
   notificationsEnabled: true,
   fallSensitivity: "Medium" as "Low" | "Medium" | "High",
-  locationUpdateInterval: 30,
+  locationUpdateInterval: 30, // default 30s
 };
 
 const SettingsContext = createContext<Settings | undefined>(undefined);
@@ -29,7 +30,7 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
   const [fallSensitivity, setFallSensitivity] = useState<"Low" | "Medium" | "High">(defaultSettings.fallSensitivity);
   const [locationUpdateInterval, setLocationUpdateInterval] = useState(defaultSettings.locationUpdateInterval);
 
-  // Load from AsyncStorage on mount
+  // Load settings on mount
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEY).then((data) => {
       if (data) {
@@ -44,7 +45,7 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
     });
   }, []);
 
-  // Save settings when changed
+  // Persist settings on change
   useEffect(() => {
     const toSave = {
       darkMode,

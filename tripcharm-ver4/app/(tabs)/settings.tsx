@@ -6,9 +6,11 @@ import {
   Switch,
   TouchableOpacity,
   Alert,
+  ActivityIndicator,
 } from "react-native";
 import Slider from "@react-native-community/slider";
 import { useSettings } from "../../context/SettingsContext";
+import { useDevices } from "../../context/DeviceContext";
 
 export default function SettingsScreen() {
   const {
@@ -22,6 +24,8 @@ export default function SettingsScreen() {
     setLocationUpdateInterval,
   } = useSettings();
 
+  const { batteryPercentage, vibrateDevice, isLoading } = useDevices();
+
   const cycleFallSensitivity = () => {
     setFallSensitivity(
       fallSensitivity === "Low"
@@ -34,6 +38,15 @@ export default function SettingsScreen() {
 
   const linkNewDevice = () => {
     Alert.alert("Device Linking", "This feature will connect to your device API later.");
+  };
+
+  const onVibratePress = async () => {
+    try {
+      await vibrateDevice();
+      Alert.alert("Vibrate", "Device vibrate command sent.");
+    } catch {
+      Alert.alert("Vibrate", "Failed to send vibrate command.");
+    }
   };
 
   return (
@@ -78,9 +91,27 @@ export default function SettingsScreen() {
         />
       </View>
 
-      {/* Link device */}
+      {/* Battery Percentage Display */}
+      <View style={[styles.settingRow, { justifyContent: "flex-start" }]}>
+        <Text style={{ marginRight: 10 }}>Battery Percentage:</Text>
+        {isLoading ? (
+          <ActivityIndicator size="small" color="#2196f3" />
+        ) : (
+          <Text>{batteryPercentage !== null ? `${batteryPercentage}%` : "N/A"}</Text>
+        )}
+      </View>
+
+      {/* Vibrate Device Button */}
       <TouchableOpacity
         style={[styles.button, { backgroundColor: "#2196f3", marginTop: 20 }]}
+        onPress={onVibratePress}
+      >
+        <Text style={styles.buttonText}>Vibrate Device</Text>
+      </TouchableOpacity>
+
+      {/* Link device */}
+      <TouchableOpacity
+        style={[styles.button, { backgroundColor: "#4caf50", marginTop: 20 }]}
         onPress={linkNewDevice}
       >
         <Text style={styles.buttonText}>Link a New Device</Text>
