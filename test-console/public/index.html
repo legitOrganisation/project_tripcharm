@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>tripcharm – Test Data Uploader</title>
+  <link rel="stylesheet" href="test.css">
+</head>
+<body>
+  <h1>tripcharm – Test Data Uploader</h1>
+
+  <!-- GPS -->
+  <section>
+    <h2>Upload GPS</h2>
+    <label>Latitude: <input type="number" step="0.000001" id="gps-lat"></label>
+    <label>Longitude: <input type="number" step="0.000001" id="gps-lon"></label>
+    <button id="send-gps">Send GPS</button>
+  </section>
+
+  <!-- Battery -->
+  <section>
+    <h2>Upload Battery %</h2>
+    <label>Battery %: <input type="number" min="0" max="100" id="batt"></label>
+    <button id="send-batt">Send Battery</button>
+  </section>
+
+  <!-- Command -->
+  <section>
+    <h2>Send Command</h2>
+    <label>Command: <input type="text" id="cmd"></label>
+    <button id="send-cmd">Send Command</button>
+  </section>
+
+  <!-- Event -->
+  <section>
+    <h2>Upload Event</h2>
+    <label>Type: <input type="text" id="event-type" value="fall"></label>
+    <label>GPS: <input type="text" id="event-gps" placeholder="lat,N,lon,E"></label>
+    <button id="send-event">Send Event</button>
+  </section>
+
+  <!-- Geofence -->
+  <section>
+    <h2>Upload Geofence</h2>
+    <label>Radius (m): <input type="number" id="geo-radius" value="100"></label>
+    <label>Lat: <input type="number" step="0.000001" id="geo-lat"></label>
+    <label>Lon: <input type="number" step="0.000001" id="geo-lon"></label>
+    <button id="send-geo">Send Geofence</button>
+  </section>
+
+  <div id="log"></div>
+
+  <script src="test.js"></script>
+</body>
+</html>

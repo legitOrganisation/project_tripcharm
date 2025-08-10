@@ -11,6 +11,9 @@
 		},
 		{
 			"path": "web-app"
+		},
+		{
+			"path": "test-console"
 		}
 	],
 	"settings": {
