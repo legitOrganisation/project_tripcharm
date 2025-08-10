@@ -1,154 +1,106 @@
-const express = require('express');
-const cors = require('cors');
-const fs = require('fs');
+const gpsUrl = "http://ma8w.ddns.net:3000/api/download/gps";
+const battUrl = "http://ma8w.ddns.net:3000/api/download/batt-percentage";
+const commandUrl = "http://ma8w.ddns.net:3000/api/upload/command";
+const eventsUrl = "http://ma8w.ddns.net:3000/api/download/events";
 
-const app = express();
-const PORT = 3000;
-
-// --- Enable CORS for all origins ---
-app.use(cors({
-  origin: '*',
-  methods: ['GET', 'POST'],
-  allowedHeaders: ['Content-Type']
-}));
-
-// --- Middleware ---
-app.use(express.urlencoded({ extended: true }));
-app.use(express.json());
-
-// --- Logging helper ---
-function logWithTime(...args) {
-  const timestamp = new Date().toISOString();
-  const log = `[${timestamp}] ${args.join(" ")}`;
-  console.log(log);
-  fs.appendFileSync('events.log', log + '\n');
+function parseGpsString(gpsStr) {
+  const parts = gpsStr.trim().split(",");
+  if (parts.length < 4) return null;
+  let lat = parseFloat(parts[0]);
+  let lon = parseFloat(parts[2]);
+  if (parts[1] === "S") lat *= -1;
+  if (parts[3] === "W") lon *= -1;
+  return { lat, lon };
 }
 
-// --- Persistent storage ---
-let queues = {
-  gps: [],
-  commands: [],
-  battPercentage: [],
-  geofencingData: [],
-  events: [] // New: store device events like falls
-};
-
-try {
-  if (fs.existsSync('queues.json')) {
-    queues = JSON.parse(fs.readFileSync('queues.json'));
+async function updateEvents() {
+  try {
+    const res = await fetch(eventsUrl);
+    if (!res.ok) throw new Error(`Events HTTP ${res.status}`);
+    const eventsArray = await res.json();
+    const eventList = document.getElementById('event-list');
+    eventList.innerHTML = "";
+    if (Array.isArray(eventsArray) && eventsArray.length > 0) {
+      eventsArray.slice().reverse().forEach(ev => {
+        const li = document.createElement('li');
+        li.textContent = `[${new Date(ev.timestamp).toLocaleTimeString()}] ${ev.type.toUpperCase()} ${ev.gps ? `@ ${ev.gps}` : ""}`;
+        eventList.appendChild(li);
+      });
+    } else {
+      eventList.innerHTML = "<li>No events recorded</li>";
+    }
+  } catch (err) {
+    console.error("Error fetching events:", err);
   }
-} catch (e) {
-  console.error("Error loading persistent data:", e);
 }
 
-function saveQueues() {
-  fs.writeFileSync('queues.json', JSON.stringify(queues, null, 2));
+async function updateData() {
+  try {
+    // GPS
+    const gpsRes = await fetch(gpsUrl);
+    const gpsArray = await gpsRes.json();
+    if (Array.isArray(gpsArray) && gpsArray.length > 0) {
+      const latestGPS = gpsArray[gpsArray.length - 1];
+      const gpsText = typeof latestGPS.gps === "string"
+        ? latestGPS.gps
+        : `${latestGPS.gps.lat},N,${latestGPS.gps.lon},E`;
+      document.getElementById('gps').textContent = gpsText;
+      document.getElementById('info-gps').textContent = gpsText;
+      document.getElementById('info-last-update').textContent =
+        new Date(latestGPS.timestamp).toLocaleTimeString();
+      const coords = parseGpsString(gpsText);
+      if (coords) {
+        document.getElementById('map').setAttribute('center', `${coords.lat},${coords.lon}`);
+        document.getElementById('device-marker').setAttribute('position', `${coords.lat},${coords.lon}`);
+      }
+    }
+
+    // Battery
+    const battRes = await fetch(battUrl);
+    const battArray = await battRes.json();
+    if (Array.isArray(battArray) && battArray.length > 0) {
+      const latestBatt = battArray[battArray.length - 1];
+      document.getElementById('battery').textContent = latestBatt.percentage;
+      document.getElementById('info-battery').textContent = latestBatt.percentage;
+    }
+  } catch (err) {
+    console.error("Error updating data:", err);
+  }
 }
 
-// ---------- UPLOAD ROUTES ----------
-
-// GPS upload
-app.post('/api/upload/gps', (req, res) => {
-  const gps = req.body.gps;
-  if (gps) {
-    queues.gps.push({ gps, timestamp: new Date().toISOString() });
-    saveQueues();
-    logWithTime("GPS uploaded:", gps);
-    res.send("GPS data uploaded");
-  } else {
-    res.status(400).send("No GPS data provided");
+async function sendCommand(cmd) {
+  try {
+    const res = await fetch(commandUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ command: cmd })
+    });
+    const text = await res.text();
+    console.log(`Command sent: ${cmd} → ${text}`);
+  } catch (err) {
+    console.error("Error sending command:", err);
   }
-});
+}
 
-// Command upload
-app.post('/api/upload/command', (req, res) => {
-  const command = req.body.command;
-  if (command) {
-    queues.commands.push({ command, timestamp: new Date().toISOString() });
-    saveQueues();
-    logWithTime("Command uploaded:", command);
-    res.send("Command uploaded");
-  } else {
-    res.status(400).send("No command provided");
-  }
-});
+document.addEventListener('DOMContentLoaded', () => {
+  updateData();
+  setInterval(updateData, 5000);
 
-// Battery percentage upload
-app.post('/api/upload/batt-percentage', (req, res) => {
-  const percentage = req.body.percentage;
-  if (percentage !== undefined) {
-    queues.battPercentage.push({ percentage, timestamp: new Date().toISOString() });
-    saveQueues();
-    logWithTime("Battery percentage uploaded:", percentage);
-    res.send("Battery percentage uploaded");
-  } else {
-    res.status(400).send("No battery percentage provided");
-  }
-});
+  updateEvents();
+  setInterval(updateEvents, 5000);
 
-// Geofencing data upload
-app.post('/api/upload/geofencing-data', (req, res) => {
-  const data = req.body.data;
-  if (data) {
-    queues.geofencingData.push({ data, timestamp: new Date().toISOString() });
-    saveQueues();
-    logWithTime("Geofencing data uploaded:", JSON.stringify(data));
-    res.send("Geofencing data uploaded");
-  } else {
-    res.status(400).send("No geofencing data provided");
-  }
-});
+  document.getElementById('vibrate').addEventListener('click', () => {
+    sendCommand("vibrate");
+    alert("Vibrate command sent.");
+  });
 
-// Event upload (e.g., falls)
-app.post('/api/upload/event', (req, res) => {
-  const { type, gps } = req.body;
-  if (!type) {
-    return res.status(400).send("No event type provided");
-  }
-  const event = {
-    type,
-    gps: gps || null,
-    timestamp: new Date().toISOString()
-  };
-  queues.events.push(event);
-  saveQueues();
-  logWithTime("Event uploaded:", JSON.stringify(event));
-  res.send("Event uploaded");
-});
-
-// ---------- DOWNLOAD ROUTES ----------
-
-// GPS download
-app.get('/api/download/gps', (req, res) => {
-  logWithTime("GPS data downloaded");
-  res.json(queues.gps);
-});
-
-// Commands download
-app.get('/api/download/command', (req, res) => {
-  logWithTime("Command data downloaded");
-  res.json(queues.commands);
-});
-
-// Battery percentage download
-app.get('/api/download/batt-percentage', (req, res) => {
-  logWithTime("Battery percentage data downloaded");
-  res.json(queues.battPercentage);
-});
-
-// Geofencing data download
-app.get('/api/download/geofencing-data', (req, res) => {
-  logWithTime("Geofencing data downloaded");
-  res.json(queues.geofencingData);
-});
-
-// Events download
-app.get('/api/download/events', (req, res) => {
-  logWithTime("Events downloaded");
-  res.json(queues.events);
-});
-
-// ---------- START SERVER ----------
-app.listen(PORT, () => {
-  logWithTime(`API server running at http://localhost:${PORT}`);
+  document.getElementById('set-fall').addEventListener('click', () => {
+    const fallValue = document.getElementById('fall').value;
+    if (fallValue >= 1 && fallValue <= 100) {
+      sendCommand(`set-fall:${fallValue}`);
+      alert(`Fall detection strength set to ${fallValue}`);
+    } else {
+      alert("Please enter a value between 1 and 100.");
+    }
+  });
 });
