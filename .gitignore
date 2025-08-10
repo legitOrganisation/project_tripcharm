@@ -11,4 +11,3 @@ server/events.log
 *.iml
 server/events.log
 server/queues.json
-server/events.log
