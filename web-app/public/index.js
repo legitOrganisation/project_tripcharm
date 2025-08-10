@@ -19,7 +19,7 @@ async function updateEvents() {
     if (!res.ok) throw new Error(`Events HTTP ${res.status}`);
     const eventsArray = await res.json();
     const eventList = document.getElementById('event-list');
-    eventList.innerHTML = ""; // Clear old entries
+    eventList.innerHTML = "";
     if (Array.isArray(eventsArray) && eventsArray.length > 0) {
       eventsArray.slice().reverse().forEach(ev => {
         const li = document.createElement('li');
@@ -43,7 +43,7 @@ async function updateData() {
       const latestGPS = gpsArray[gpsArray.length - 1];
       const gpsText = typeof latestGPS.gps === "string"
         ? latestGPS.gps
-        : `${latestGPS.gps.lat},N,${latestGPS.gps.lon},E`; // handle object format
+        : `${latestGPS.gps.lat},N,${latestGPS.gps.lon},E`;
       document.getElementById('gps').textContent = gpsText;
       document.getElementById('info-gps').textContent = gpsText;
       document.getElementById('info-last-update').textContent =
@@ -84,17 +84,16 @@ async function sendCommand(cmd) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  // Start updating GPS and battery
   updateData();
+  updateEvents();
   setInterval(updateData, 5000);
+  setInterval(updateEvents, 5000);
 
-  // Vibrate button listener
   document.getElementById('vibrate').addEventListener('click', () => {
     sendCommand("vibrate");
-    alert("Vibrate command sent.")
+    alert("Vibrate command sent.");
   });
 
-  // Fall detect button listener
   document.getElementById('set-fall').addEventListener('click', () => {
     const fallValue = document.getElementById('fall').value;
     if (fallValue >= 1 && fallValue <= 100) {
