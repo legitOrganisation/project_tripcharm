@@ -5,6 +5,9 @@ const fs = require('fs');
 const app = express();
 const PORT = 3000;
 
+// --- Config ---
+const COMMAND_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
 // --- Enable CORS for all origins ---
 app.use(cors({
   origin: '*',
@@ -45,6 +48,23 @@ function saveQueues() {
   fs.writeFileSync('queues.json', JSON.stringify(queues, null, 2));
 }
 
+// --- Helpers ---
+function pruneOldCommands() {
+  const cutoff = Date.now() - COMMAND_TTL_MS;
+  const before = queues.commands.length;
+  queues.commands = queues.commands.filter(c => {
+    const t = new Date(c.timestamp).getTime();
+    return !Number.isNaN(t) && t >= cutoff;
+  });
+  if (queues.commands.length !== before) {
+    logWithTime(`Pruned ${before - queues.commands.length} old command(s)`);
+    saveQueues();
+  }
+}
+
+// Prune once on startup just in case
+pruneOldCommands();
+
 // ---------- UPLOAD ROUTES ----------
 
 // GPS upload
@@ -60,17 +80,29 @@ app.post('/api/upload/gps', (req, res) => {
   }
 });
 
-// Command upload
+// Command upload (supports 'clear' to wipe all commands)
 app.post('/api/upload/command', (req, res) => {
   const command = req.body.command;
-  if (command) {
-    queues.commands.push({ command, timestamp: new Date().toISOString() });
-    saveQueues();
-    logWithTime("Command uploaded:", command);
-    res.send("Command uploaded");
-  } else {
-    res.status(400).send("No command provided");
+
+  if (!command) {
+    return res.status(400).send("No command provided");
   }
+
+  // Reserved admin command to clear all commands
+  if (String(command).toLowerCase() === 'clear') {
+    const count = queues.commands.length;
+    queues.commands = [];
+    saveQueues();
+    logWithTime(`Commands cleared (removed ${count})`);
+    return res.send(`All commands cleared (${count} removed)`);
+  }
+
+  // Normal command path
+  pruneOldCommands();
+  queues.commands.push({ command, timestamp: new Date().toISOString() });
+  saveQueues();
+  logWithTime("Command uploaded:", command);
+  res.send("Command uploaded");
 });
 
 // Battery percentage upload
@@ -124,8 +156,9 @@ app.get('/api/download/gps', (req, res) => {
   res.json(queues.gps);
 });
 
-// Commands download
+// Commands download (auto-prunes before returning)
 app.get('/api/download/command', (req, res) => {
+  pruneOldCommands();
   logWithTime("Command data downloaded");
   res.json(queues.commands);
 });
