@@ -1,0 +1,22 @@
+{
+	"folders": [
+		{
+			"path": "code"
+		},
+		{
+			"path": "server"
+		},
+		{
+			"path": "tripcharm-ver4"
+		},
+		{
+			"path": "web-app"
+		},
+		{
+			"path": "test-console"
+		}
+	],
+	"settings": {
+		"liveServer.settings.multiRootWorkspaceName": "web-app"
+	}
+}

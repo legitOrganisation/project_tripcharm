@@ -4,4 +4,10 @@ tripcharm-ver4/android/.idea/
 tripcharm-ver4/android/build/
 tripcharm-ver4/ios/Pods/
 tripcharm-ver4/ios/build/
+server/queues.json
+server/events.json
+server/commands.json
+server/events.log
 *.iml
+server/events.log
+server/queues.json

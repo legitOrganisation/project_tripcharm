@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>tripcharm</title>
+  <link rel="stylesheet" href="styles.css">
+  <script type="module" src="https://unpkg.com/@googlemaps/extended-component-library"></script>
+  <gmpx-api-loader key="AIzaSyDhZjMrXAgxuA6U3rhsuHMl8rBe035WEf8"></gmpx-api-loader>
+</head>
+<body>
+  <div id="top-bar">
+    <div class="widget">
+      <span>GPS:</span> <span id="gps">Loading...</span>
+    </div>
+    <div class="widget">
+      <span>Battery:</span> <span id="battery">Loading...</span>%
+    </div>
+    <div class="widget">
+      <label>Update freq (sec): <input id="freq" type="number" min="1" value="5"></label>
+      <button id="set-freq">Set</button>
+    </div>
+    <div class="widget">
+      <label>Fall detect strength: <input id="fall" type="number" min="1" max="100" value="50"></label>
+      <button id="set-fall">Set</button>
+    </div>
+    <div id="events-panel">
+      <h3>Device Events</h3>
+      <ul id="event-list">
+        <li>Loading...</li>
+      </ul>
+    </div>
+    <div class="widget">
+      <button id="vibrate">Vibrate</button>
+    </div>
+  </div>
+
+  <div id="map-container">
+    <gmp-map id="map" center="43.880,-103.459" zoom="10" map-id="DEMO_MAP_ID">
+      <gmp-advanced-marker id="device-marker" position="43.880,-103.459" title="Click for details"></gmp-advanced-marker>
+    </gmp-map>
+  </div>
+
+  <!-- Hidden info panel -->
+  <div id="info-panel" class="hidden">
+    <h2>Device Info</h2>
+    <p><strong>GPS:</strong> <span id="info-gps">-</span></p>
+    <p><strong>Battery:</strong> <span id="info-battery">-</span>%</p>
+    <p><strong>Last Update:</strong> <span id="info-last-update">-</span></p>
+    <button id="close-info">Close</button>
+  </div>
+
+  <script src="index.js"></script>
+</body>
+</html>

@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Tripcharm Test Data Uploader</title>
+</head>
+<body>
+  <h1>Tripcharm Test Data Uploader</h1>
+
+  <h2>Upload Data</h2>
+  
+  <h3>Upload GPS</h3>
+  <input type="text" id="lat" placeholder="Latitude" value="1.3521">
+  <input type="text" id="lon" placeholder="Longitude" value="103.8198">
+  <button onclick="uploadGPS()">Send GPS</button>
+
+  <h3>Upload Battery</h3>
+  <input type="number" id="battery" placeholder="%" value="85">
+  <button onclick="uploadBattery()">Send Battery</button>
+
+  <h3>Send Command</h3>
+  <input type="text" id="command" placeholder="Command" value="vibrate">
+  <button onclick="uploadCommand()">Send Command</button>
+
+  <h3>Upload Event</h3>
+  <input type="text" id="eventType" placeholder="Event type" value="fall">
+  <input type="text" id="eventGPS" placeholder="Event GPS" value="1.347833,N,103.843222,E">
+  <button onclick="uploadEvent()">Send Event</button>
+
+  <h3>Upload Geofencing</h3>
+  <input type="number" id="geoRadius" placeholder="Radius (m)" value="100">
+  <input type="text" id="geoLat" placeholder="Center Latitude" value="1.3000">
+  <input type="text" id="geoLon" placeholder="Center Longitude" value="103.8000">
+  <button onclick="uploadGeofencing()">Send Geofencing</button>
+
+  <h2>Download Data</h2>
+  <button onclick="downloadData('gps')">Download GPS</button>
+  <button onclick="downloadData('batt-percentage')">Download Battery</button>
+  <button onclick="downloadData('command')">Download Commands</button>
+  <button onclick="downloadData('events')">Download Events</button>
+  <button onclick="downloadData('geofencing-data')">Download Geofencing</button>
+
+  <pre id="output">No data loaded.</pre>
+
+<script>
+const baseURL = "http://ma8w.ddns.net:3000/api";
+
+// -------- UPLOAD FUNCTIONS --------
+async function uploadGPS() {
+  sendData(`${baseURL}/upload/gps`, {
+    gps: { lat: parseFloat(lat.value), lon: parseFloat(lon.value) }
+  });
+}
+
+async function uploadBattery() {
+  sendData(`${baseURL}/upload/batt-percentage`, {
+    percentage: parseInt(battery.value)
+  });
+}
+
+async function uploadCommand() {
+  sendData(`${baseURL}/upload/command`, {
+    command: command.value
+  });
+}
+
+async function uploadEvent() {
+  sendData(`${baseURL}/upload/event`, {
+    type: eventType.value,
+    gps: eventGPS.value
+  });
+}
+
+async function uploadGeofencing() {
+  sendData(`${baseURL}/upload/geofencing-data`, {
+    data: {
+      radius: parseFloat(geoRadius.value),
+      center: { lat: parseFloat(geoLat.value), lon: parseFloat(geoLon.value) }
+    }
+  });
+}
+
+async function sendData(url, body) {
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    });
+    const text = await res.text();
+    alert(`Response from ${url}:\n${text}`);
+  } catch (err) {
+    alert(`Error sending to ${url}:\n${err}`);
+  }
+}
+
+// -------- DOWNLOAD FUNCTIONS --------
+async function downloadData(type) {
+  try {
+    const res = await fetch(`${baseURL}/download/${type}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const json = await res.json();
+    document.getElementById("output").textContent =
+      JSON.stringify(json, null, 2);
+  } catch (err) {
+    alert(`Error downloading ${type}:\n${err}`);
+  }
+}
+</script>
+</body>
+</html>
