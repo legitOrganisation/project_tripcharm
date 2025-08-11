@@ -9,6 +9,19 @@
   --danger:#ef5350;
   --border:#253151;
 }
+
+.import-label{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding:6px 10px;
+  border-radius:8px;
+  border:1px solid var(--border);
+  background:#0b1328;
+  color:#e6edf3;
+  line-height:1;
+}
+
 *{box-sizing:border-box}
 body{
   margin:0;
