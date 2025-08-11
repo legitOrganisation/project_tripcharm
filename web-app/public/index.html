@@ -1,55 +1,93 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>tripcharm</title>
-  <link rel="stylesheet" href="styles.css">
-  <script type="module" src="https://unpkg.com/@googlemaps/extended-component-library"></script>
-  <gmpx-api-loader key="AIzaSyDhZjMrXAgxuA6U3rhsuHMl8rBe035WEf8"></gmpx-api-loader>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Tripcharm – Geofencing Web App</title>
+  <link rel="stylesheet" href="styles.css"/>
+
+  <!-- Google Maps JS API (Web Components) -->
+  <!-- Replace YOUR_API_KEY with your actual key -->
+  <script async
+    src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY&libraries=marker&v=beta">
+  </script>
+  <script type="module" src="https://unpkg.com/@googlemaps/extended-component-library@0.6"></script>
 </head>
 <body>
-  <div id="top-bar">
-    <div class="widget">
-      <span>GPS:</span> <span id="gps">Loading...</span>
+  <header class="topbar">
+    <h1>Tripcharm Geofence Console</h1>
+    <div class="right">
+      <button id="export-btn" class="secondary">Export</button>
+      <label class="import-label">
+        Import <input id="import-file" type="file" accept="application/json" hidden>
+      </label>
     </div>
-    <div class="widget">
-      <span>Battery:</span> <span id="battery">Loading...</span>%
-    </div>
-    <div class="widget">
-      <label>Update freq (sec): <input id="freq" type="number" min="1" value="5"></label>
-      <button id="set-freq">Set</button>
-    </div>
-    <div class="widget">
-      <label>Fall detect strength: <input id="fall" type="number" min="1" max="100" value="50"></label>
-      <button id="set-fall">Set</button>
-    </div>
-    <div id="events-panel">
-      <h3>Device Events</h3>
-      <ul id="event-list">
-        <li>Loading...</li>
-      </ul>
-    </div>
-    <div class="widget">
-      <button id="vibrate">Vibrate</button>
-    </div>
-  </div>
+  </header>
 
-  <div id="map-container">
-    <gmp-map id="map" center="43.880,-103.459" zoom="10" map-id="DEMO_MAP_ID">
-      <gmp-advanced-marker id="device-marker" position="43.880,-103.459" title="Click for details"></gmp-advanced-marker>
-    </gmp-map>
-  </div>
+  <!-- Geofence Editor Panel -->
+  <section id="geofence-panel">
+    <div class="row">
+      <strong>Geofencing</strong>
+      <input id="gf-name" placeholder="Zone name"/>
+      <button id="gf-circle" class="primary">Circle</button>
+      <label>Radius (m)
+        <input id="gf-radius" type="number" value="150" min="10" step="10" style="width:90px">
+      </label>
+      <button id="gf-polygon" class="primary-outline">Polygon</button>
+      <button id="gf-save" class="success">Save</button>
+      <button id="gf-clear" class="danger">Clear</button>
+      <span id="gf-status" class="muted"></span>
+    </div>
 
-  <!-- Hidden info panel -->
-  <div id="info-panel" class="hidden">
-    <h2>Device Info</h2>
-    <p><strong>GPS:</strong> <span id="info-gps">-</span></p>
-    <p><strong>Battery:</strong> <span id="info-battery">-</span>%</p>
-    <p><strong>Last Update:</strong> <span id="info-last-update">-</span></p>
-    <button id="close-info">Close</button>
-  </div>
+    <div class="row small">
+      <label>Server
+        <input id="server-base" placeholder="http://ma8w.ddns.net:3000" style="width:260px">
+      </label>
+      <label>Device ID
+        <input id="device-id" value="default" style="width:160px">
+      </label>
+      <button id="test-vibrate" class="secondary">Test Vibrate</button>
+      <span id="inside-flag" class="badge">inside?</span>
+    </div>
+  </section>
 
-  <script src="index.js"></script>
+  <!-- Map + Info -->
+  <main id="main">
+    <div id="map-container">
+      <!-- Google Maps Web Components -->
+      <gmp-map id="map"
+               map-id="DEMO_MAP_ID"
+               style="height:100%; width:100%; border-radius: 12px;"
+               zoom="12"
+               center="1.3521,103.8198">
+        <gmp-advanced-marker id="device-marker"
+                             position="1.3521,103.8198"
+                             title="Device">
+        </gmp-advanced-marker>
+      </gmp-map>
+    </div>
+
+    <aside id="side">
+      <div class="card">
+        <h3>Live Device</h3>
+        <div class="kv"><span>Latitude</span><span id="lat">–</span></div>
+        <div class="kv"><span>Longitude</span><span id="lon">–</span></div>
+        <div class="kv"><span>Updated</span><span id="updated">–</span></div>
+        <div class="kv"><span>Battery</span><span id="battery">–</span></div>
+        <div class="kv"><span>Status</span><span id="status">idle</span></div>
+      </div>
+
+      <div class="card">
+        <h3>Saved Geofences</h3>
+        <ul id="gf-list" class="list"></ul>
+      </div>
+    </aside>
+  </main>
+
+  <footer class="footer">
+    <span>Click the map to set a circle center or add polygon vertices. Save to store the zone.</span>
+  </footer>
+
+  <script type="module" src="index.js"></script>
 </body>
 </html>
