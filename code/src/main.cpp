@@ -1,8 +1,12 @@
 #include <Arduino.h>
 
-// ----------------------- Battery config -----------------------
-#define BATT_PIN        D1          // D1 on XIAO ESP32C3
-#define DIVIDER_RATIO   11.0f      // 10k : 1k divider  -> 11x
+// ----------------------- Pins -----------------------
+#define BATT_PIN        D1      // Battery voltage divider input
+#define BUTTON_A_PIN    D10     // SOS A
+#define BUTTON_B_PIN    D0      // SOS B
+#define VIBRATION_PIN   D3      // vibration motor control
+
+#define DIVIDER_RATIO   11.0f
 #define BATT_MIN_VOLT   3.0f
 #define BATT_MAX_VOLT   4.2f
 
@@ -24,8 +28,7 @@ String sendAT(const String& cmd, uint32_t wait_ms = 500) {
 // ----------------------- GPS helpers --------------------------
 bool getGPSCoords(float &latDec, float &lonDec) {
   String resp = sendAT("AT+CGPSINFO", 1000);
-  int idx = resp.indexOf("+CGPSINFO:");
-  if (idx == -1 || resp.indexOf(",,,,,,,,") != -1) return false;
+  if (resp.indexOf("+CGPSINFO:") == -1 || resp.indexOf(",,,,,,,,") != -1) return false;
 
   String gpsData = resp.substring(resp.indexOf(":") + 1);
   gpsData.trim();
@@ -42,13 +45,11 @@ bool getGPSCoords(float &latDec, float &lonDec) {
 
   if (lat.length() < 3 || lon.length() < 3) return false;
 
-  // Latitude: DDMM.MMMM
   float lat_deg = lat.substring(0, 2).toFloat();
   float lat_min = lat.substring(2).toFloat();
   latDec = lat_deg + (lat_min / 60.0f);
   if (ns == "S") latDec = -latDec;
 
-  // Longitude: DDDMM.MMMM
   float lon_deg = lon.substring(0, 3).toFloat();
   float lon_min = lon.substring(3).toFloat();
   lonDec = lon_deg + (lon_min / 60.0f);
@@ -69,17 +70,32 @@ void uploadGPS(float lat, float lon) {
   LTEGNSS.print(json);
   delay(400);
 
-  sendAT("AT+HTTPACTION=1", 6000); // POST
+  sendAT("AT+HTTPACTION=1", 6000);
+  sendAT("AT+HTTPREAD", 800);
+  sendAT("AT+HTTPTERM", 300);
+}
+
+// ----------------------- Event uploader -----------------------
+void uploadEvent(const String& type) {
+  sendAT("AT+HTTPTERM", 300);
+  sendAT("AT+HTTPINIT", 500);
+  sendAT("AT+HTTPPARA=\"CID\",1", 300);
+  sendAT("AT+HTTPPARA=\"URL\",\"http://ma8w.ddns.net:3000/api/upload/event\"", 300);
+  sendAT("AT+HTTPPARA=\"CONTENT\",\"application/json\"", 300);
+
+  String json = "{\"type\":\"" + type + "\"}";
+  sendAT("AT+HTTPDATA=" + String(json.length()) + ",10000", 200);
+  LTEGNSS.print(json);
+  delay(400);
+
+  sendAT("AT+HTTPACTION=1", 6000);
   sendAT("AT+HTTPREAD", 800);
   sendAT("AT+HTTPTERM", 300);
 }
 
 // ----------------------- Battery helpers ----------------------
 float readBatteryVoltage() {
-  // voltage at pin (in V)
-  float v_pin = analogReadMilliVolts(BATT_PIN) / 1000.0f;
-  // scaled to pack voltage
-  return v_pin * DIVIDER_RATIO;
+  return (analogReadMilliVolts(BATT_PIN) / 1000.0f) * DIVIDER_RATIO;
 }
 
 int batteryPercentLinear() {
@@ -102,22 +118,30 @@ void uploadBatteryPercentage(int pct) {
   LTEGNSS.print(json);
   delay(400);
 
-  sendAT("AT+HTTPACTION=1", 6000); // POST
+  sendAT("AT+HTTPACTION=1", 6000);
   sendAT("AT+HTTPREAD", 800);
   sendAT("AT+HTTPTERM", 300);
 }
 
-// ----------------------- Setup/Loop ---------------------------
+// ----------------------- Setup ---------------------------
+unsigned long lastPostMs = 0;
+const unsigned long POST_PERIOD_MS = 10000;
+
 void setup() {
   Serial.begin(115200);
   delay(2000);
+
+  pinMode(BUTTON_A_PIN, INPUT_PULLUP);
+  pinMode(BUTTON_B_PIN, INPUT_PULLUP);
+  pinMode(VIBRATION_PIN, OUTPUT);
+  digitalWrite(VIBRATION_PIN, LOW);
 
   analogReadResolution(12);
 
   LTEGNSS.begin(115200, SERIAL_8N1, -1, -1);
   delay(2000);
 
-  Serial.println("=== SIM7600G-H: GPS + Battery Uploader ===");
+  Serial.println("=== SIM7600G-H: GPS + Battery + SOS + Vibration ===");
 
   sendAT("AT");
   sendAT("AT+CFUN=1", 800);
@@ -126,28 +150,46 @@ void setup() {
   sendAT("AT+NETOPEN", 3000);
   delay(300);
 
-  // Start GPS (MS-based A-GPS)
   sendAT("AT+CGPS=0", 800);
   delay(300);
   sendAT("AT+CGPS=1,2", 800);
   Serial.println("Waiting for GPS lock...");
 }
 
-unsigned long lastPostMs = 0;
-const unsigned long POST_PERIOD_MS = 10000; // 10s: matches your GPS cadence
+// ----------------------- Vibration helper --------------------
+void vibrate200ms() {
+  digitalWrite(VIBRATION_PIN, HIGH);
+  delay(200);
+  digitalWrite(VIBRATION_PIN, LOW);
+}
 
+// ----------------------- Loop ---------------------------
 void loop() {
-  // Print local battery reading to Serial each second for visibility
+  static bool lastA = HIGH, lastB = HIGH;
+  bool curA = digitalRead(BUTTON_A_PIN);
+  bool curB = digitalRead(BUTTON_B_PIN);
+
+  if (lastA == HIGH && curA == LOW) {
+    Serial.println("Button A pressed");
+    vibrate200ms();
+    uploadEvent("SOS Button A Pressed");
+  }
+  if (lastB == HIGH && curB == LOW) {
+    Serial.println("Button B pressed");
+    vibrate200ms();
+    uploadEvent("SOS Button B Pressed");
+  }
+  lastA = curA;
+  lastB = curB;
+
   float v_pin = analogReadMilliVolts(BATT_PIN) / 1000.0f;
   float v_batt = v_pin * DIVIDER_RATIO;
   int pct = batteryPercentLinear();
   Serial.printf("Vpin: %.3f V | Vbatt: %.3f V | %d%%\n", v_pin, v_batt, pct);
 
-  // Upload every POST_PERIOD_MS
   if (millis() - lastPostMs >= POST_PERIOD_MS) {
     lastPostMs = millis();
 
-    // GPS first (if available)
     float lat, lon;
     if (getGPSCoords(lat, lon)) {
       Serial.printf("Got GPS: %.6f, %.6f\n", lat, lon);
@@ -156,9 +198,8 @@ void loop() {
       Serial.println("GPS not ready yet.");
     }
 
-    // Then battery percentage
     uploadBatteryPercentage(pct);
   }
 
-  delay(1000);
+  delay(100);
 }
