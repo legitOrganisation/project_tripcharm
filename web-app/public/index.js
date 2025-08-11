@@ -245,6 +245,7 @@ importFile.onchange = async (e)=>{
     else if(Array.isArray(obj.geofences)) geofences = obj.geofences;
     else throw new Error('Invalid file structure');
     saveGeofences();
+    uploadGeofencesToServer('import');
     setStatus('Imported geofences');
   }catch(err){ alert('Import failed: '+err.message); }
   finally{ importFile.value=''; }
@@ -309,12 +310,14 @@ function onSave(){
     const g = { id: rnd(), name, type:'circle', center:{ lat: tempPoints[0].lat, lon: tempPoints[0].lon }, radius };
     geofences.push(g);
     saveGeofences();
+    uploadGeofencesToServer('save');
     clearTempOverlays();
     setStatus(`Saved circle "${name}"`);
   } else if(activeMode==='polygon' && tempPoints.length>=3){
     const g = { id: rnd(), name, type:'polygon', polygonPoints: tempPoints.slice() };
     geofences.push(g);
     saveGeofences();
+    uploadGeofencesToServer('save');
     clearTempOverlays();
     setStatus(`Saved polygon "${name}"`);
   } else {
@@ -408,6 +411,7 @@ function deleteGeofence(id){
   if(!confirm('Delete this geofence?')) return;
   geofences = geofences.filter(x=>x.id!==id);
   saveGeofences();
+  uploadGeofencesToServer('delete');
 }
 
 /***********************
@@ -421,6 +425,38 @@ async function fetchJSON(url){
   const res = await fetch(url);
   if(!res.ok) throw new Error(`${res.status} ${res.statusText}`);
   return res.json();
+}
+async function uploadGeofencesToServer(reason = 'manual') {
+  try {
+    const payload = {
+      data: {
+        reason,
+        deviceId: (deviceIdInput?.value || 'default'),
+        updatedAt: new Date().toISOString(),
+        geofences: geofences.map(g => ({
+          id: g.id,
+          name: g.name,
+          type: g.type,
+          radius: g.radius ?? null,
+          center: g.center ? { lat: g.center.lat, lon: g.center.lon } : null,
+          polygonPoints: Array.isArray(g.polygonPoints) ? g.polygonPoints.map(p => ({ lat: p.lat, lon: p.lon })) : []
+        }))
+      }
+    };
+
+    const res = await fetch(serverBase() + "/api/upload/geofencing-data", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+
+    if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+    setStatus('Geofences synced to server');
+    if (typeof showToast === 'function') showToast('Geofences uploaded.', 'Sync');
+  } catch (err) {
+    console.error('Upload geofences error:', err);
+    setStatus('Failed to upload geofences');
+  }
 }
 async function pollOnce(){
   try{
@@ -515,6 +551,8 @@ pollOnce();
 // Initial route
 if(!location.hash) location.hash = '#/dashboard';
 renderRoute();
+
+window.addEventListener('load', () => uploadGeofencesToServer('init'));
 
 /***********************
  * Events fetch + UI
