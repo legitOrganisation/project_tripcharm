@@ -369,12 +369,21 @@ async function pollOnce(){
     const latestBatt = battArray[battArray.length - 1] || {};
 
     let lat = 0, lon = 0;
-    if (latestGPS.gps) {
-      const parts = latestGPS.gps.split(',');
-      if (parts.length >= 4) {
-        lat = parseFloat(parts[0]) * (parts[1] === 'S' ? -1 : 1);
-        lon = parseFloat(parts[2]) * (parts[3] === 'W' ? -1 : 1);
+
+    if (latestGPS.gps !== undefined) {
+      if (typeof latestGPS.gps === "string") {
+        const parts = latestGPS.gps.split(',');
+        if (parts.length >= 4) {
+          lat = parseFloat(parts[0]) * (parts[1] === 'S' ? -1 : 1);
+          lon = parseFloat(parts[2]) * (parts[3] === 'W' ? -1 : 1);
+        }
+      } else if (Array.isArray(latestGPS.gps)) {
+        lat = parseFloat(latestGPS.gps[0]) || 0;
+        lon = parseFloat(latestGPS.gps[1]) || 0;
       }
+    } else if (latestGPS.latitude !== undefined && latestGPS.longitude !== undefined) {
+      lat = parseFloat(latestGPS.latitude) || 0;
+      lon = parseFloat(latestGPS.longitude) || 0;
     }
 
     const ts = latestGPS.timestamp ? new Date(latestGPS.timestamp) : new Date();
