@@ -1,23 +1,25 @@
-// index.js
-// Geofencing in the browser with Google Maps Web Components.
-// - Local persistence (localStorage)
-// - Circle/Polygon editing & overlays
-// - Inside/outside calculation on every device GPS poll
-// - Optional server command when outside
+// index.js – Integrated tabs: Dashboard + Geofencing
+// Reuses styling and adds a tiny hash-router (#/dashboard, #/geofencing)
 
 /***********************
  * Configuration
  ************************/
-const DEFAULT_SERVER = "http://ma8w.ddns.net:3000"; // change as needed
-const GPS_POLL_MS = 5000; // how often to poll device GPS/battery
-const VIBRATE_COOLDOWN_MS = 60_000; // throttle server 'vibrate' commands
+const DEFAULT_SERVER = localStorage.getItem('serverBase') || "http://ma8w.ddns.net:3000";
+const GPS_POLL_MS = 5000;
+const VIBRATE_COOLDOWN_MS = 60_000;
 
 /***********************
  * DOM references
  ************************/
-const mapEl = document.getElementById('map');
-const deviceMarkerEl = document.getElementById('device-marker');
+// Tabs
+const tabDashboard = document.getElementById('tab-dashboard');
+const tabGeofencing = document.getElementById('tab-geofencing');
 
+// Views
+const viewDashboard = document.querySelector('.view-dashboard');
+const viewGeofencing = document.querySelectorAll('.view-geofencing');
+
+// Shared displays
 const latEl = document.getElementById('lat');
 const lonEl = document.getElementById('lon');
 const updatedEl = document.getElementById('updated');
@@ -25,6 +27,11 @@ const batteryEl = document.getElementById('battery');
 const statusEl = document.getElementById('status');
 const listEl = document.getElementById('gf-list');
 
+// Dashboard server input
+const serverBaseDashInput = document.getElementById('server-base-dash');
+const refreshNowBtn = document.getElementById('refresh-now');
+
+// Geofencing panel controls
 const nameInput = document.getElementById('gf-name');
 const radiusInput = document.getElementById('gf-radius');
 const btnCircle = document.getElementById('gf-circle');
@@ -33,33 +40,39 @@ const btnSave = document.getElementById('gf-save');
 const btnClear = document.getElementById('gf-clear');
 const statusBadge = document.getElementById('gf-status');
 const insideFlag = document.getElementById('inside-flag');
-
 const serverBaseInput = document.getElementById('server-base');
 const deviceIdInput = document.getElementById('device-id');
 const testVibrateBtn = document.getElementById('test-vibrate');
 
+// Geofencing side readouts
+const latGeoEl = document.getElementById('lat-geo');
+const lonGeoEl = document.getElementById('lon-geo');
+const insideGeoEl = document.getElementById('inside-geo');
+const listGeoEl = document.getElementById('gf-list-geo');
+
+// Export/Import
 const exportBtn = document.getElementById('export-btn');
 const importFile = document.getElementById('import-file');
 
 /***********************
- * Maps objects (once ready)
+ * Maps objects
  ************************/
-let map, gmDeviceMarker;
+let mapDash, mkDash;
+let mapGeo, mkGeo;
 let activeMode = null; // 'circle' | 'polygon' | null
 let tempCircle = null, tempPolygon = null, tempPoints = [];
 let lastOutsideSentAt = 0;
-
-// Saved overlays for each geofence by id
 const overlayById = new Map();
 
+// Web components
+const mapDashEl = document.getElementById('map');
+const mkDashEl = document.getElementById('device-marker');
+const mapGeoEl = document.getElementById('map-geo');
+const mkGeoEl = document.getElementById('device-marker-geo');
+
 /***********************
- * Geofence model & store
+ * Geofence store
  ************************/
-/**
- * @typedef {{ id:string, name:string, type:'circle'|'polygon',
- *   center?:{lat:number,lon:number}|null, radius?:number,
- *   polygonPoints?:Array<{lat:number,lon:number}> }} Geofence
- */
 let geofences = loadGeofences();
 function loadGeofences(){
   try { return JSON.parse(localStorage.getItem('geofences')||'[]'); }
@@ -67,12 +80,12 @@ function loadGeofences(){
 }
 function saveGeofences(){
   localStorage.setItem('geofences', JSON.stringify(geofences));
-  renderGeofenceList();
+  renderGeofenceLists();
   drawAllOverlays();
 }
 
 /***********************
- * Geometry helpers
+ * Geometry
  ************************/
 const R = 6371000;
 const toRad = d => d*Math.PI/180;
@@ -101,12 +114,59 @@ function isInside(g,lat,lon){
 }
 
 /***********************
- * UI wiring
+ * Tiny router
  ************************/
-serverBaseInput.value = localStorage.getItem('serverBase') || DEFAULT_SERVER;
+function setActiveTab(hash){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  if(hash.startsWith('#/geofencing')) document.getElementById('tab-geofencing').classList.add('active');
+  else document.getElementById('tab-dashboard').classList.add('active');
+}
+function renderRoute(){
+  const hash = location.hash || '#/dashboard';
+  setActiveTab(hash);
+  const showGeo = hash.startsWith('#/geofencing');
+  // Toggle views
+  viewDashboard.classList.toggle('hidden', showGeo);
+  document.getElementById('geofence-panel').classList.toggle('hidden', !showGeo);
+  document.getElementById('main-geofencing').classList.toggle('hidden', !showGeo);
+  // Ensure map tiles/layout update
+  setTimeout(()=>{
+    mapDash && google.maps.event.trigger(mapDash, 'resize');
+    mapGeo && google.maps.event.trigger(mapGeo, 'resize');
+  }, 50);
+}
+window.addEventListener('hashchange', renderRoute);
+
+/***********************
+ * Init maps
+ ************************/
+(async function initMaps(){
+  await customElements.whenDefined('gmp-map');
+  // Dashboard map
+  mapDash = mapDashEl.innerMap;
+  mkDash = mkDashEl.innerMarker;
+  // Geofencing map
+  mapGeo = mapGeoEl.innerMap;
+  mkGeo = mkGeoEl.innerMarker;
+
+  drawAllOverlays();
+  renderGeofenceLists();
+  renderRoute();
+})();
+
+/***********************
+ * UI events
+ ************************/
+serverBaseInput.value = DEFAULT_SERVER;
 serverBaseInput.addEventListener('change', ()=>{
   localStorage.setItem('serverBase', serverBaseInput.value.trim());
 });
+serverBaseDashInput.value = DEFAULT_SERVER;
+serverBaseDashInput.addEventListener('change', ()=>{
+  localStorage.setItem('serverBase', serverBaseDashInput.value.trim());
+  serverBaseInput.value = serverBaseDashInput.value.trim();
+});
+
 deviceIdInput.addEventListener('change', ()=>{
   localStorage.setItem('deviceId', deviceIdInput.value.trim());
 });
@@ -116,11 +176,8 @@ btnCircle.onclick = ()=>{ activeMode='circle'; tempPoints=[]; setStatus('Tap map
 btnPolygon.onclick = ()=>{ activeMode='polygon'; tempPoints=[]; setStatus('Tap map to add polygon vertices; Save when done'); };
 btnClear.onclick = ()=>{ clearTempOverlays(); setStatus('Cleared'); };
 btnSave.onclick = onSave;
-
-testVibrateBtn.onclick = async ()=>{
-  await sendVibrate();
-  setStatus('Vibrate command sent (manual)');
-};
+testVibrateBtn.onclick = async ()=>{ await sendVibrate(); setStatus('Vibrate command sent'); };
+refreshNowBtn.onclick = ()=> pollOnce();
 
 exportBtn.onclick = ()=>{
   const data = JSON.stringify({ geofences }, null, 2);
@@ -136,43 +193,30 @@ importFile.onchange = async (e)=>{
   const file = e.target.files[0];
   if(!file) return;
   const text = await file.text();
-  try {
+  try{
     const obj = JSON.parse(text);
     if(Array.isArray(obj)) geofences = obj;
     else if(Array.isArray(obj.geofences)) geofences = obj.geofences;
     else throw new Error('Invalid file structure');
     saveGeofences();
     setStatus('Imported geofences');
-  } catch(err){
-    alert('Import failed: '+err.message);
-  } finally {
-    importFile.value = '';
-  }
+  }catch(err){ alert('Import failed: '+err.message); }
+  finally{ importFile.value=''; }
 };
 
 function setStatus(msg){ statusBadge.textContent = msg; }
 
 /***********************
- * Map init & interactions
+ * Map interactions
  ************************/
-(async function initMap(){
-  await customElements.whenDefined('gmp-map');
-  map = mapEl.innerMap;                       // google.maps.Map
-  gmDeviceMarker = deviceMarkerEl.innerMarker; // AdvancedMarkerElement
-
-  // Draw any persisted geofences
-  drawAllOverlays();
-})();
-
-// Click handler from the web component
-mapEl.addEventListener('gmp-click', (e)=>{
-  if(!activeMode || !map) return;
+mapGeoEl.addEventListener('gmp-click', (e)=>{
+  if(!activeMode || !mapGeo) return;
   const lat = e.detail.latLng.lat(), lon = e.detail.latLng.lng();
   if(activeMode==='circle'){
     clearTempOverlays();
     const r = Number(radiusInput.value)||150;
     tempCircle = new google.maps.Circle({
-      map, center:{lat, lng:lon}, radius:r,
+      map: mapGeo, center:{lat, lng:lon}, radius:r,
       strokeColor:'#2196F3', fillColor:'#2196F3', fillOpacity:0.2, strokeOpacity:0.9
     });
     tempPoints = [{lat,lon}];
@@ -180,7 +224,7 @@ mapEl.addEventListener('gmp-click', (e)=>{
     tempPoints.push({lat,lon});
     if(tempPolygon) tempPolygon.setMap(null);
     tempPolygon = new google.maps.Polygon({
-      map, paths: tempPoints.map(p=>({lat:p.lat,lng:p.lon})),
+      map: mapGeo, paths: tempPoints.map(p=>({lat:p.lat,lng:p.lon})),
       strokeColor:'#FF9800', fillColor:'#FF9800', fillOpacity:0.25, strokeOpacity:0.9
     });
   }
@@ -216,59 +260,79 @@ function onSave(){
 function rnd(){ return Math.random().toString(36).slice(2); }
 
 /***********************
- * Rendering saved geofences
+ * Render & overlays
  ************************/
 function drawAllOverlays(){
-  // Clear existing
+  // clear
   for(const [,ov] of overlayById) destroyOverlay(ov);
   overlayById.clear();
 
   for(const g of geofences){
     if(g.type==='circle' && g.center){
-      const circle = new google.maps.Circle({
-        map, center:{lat:g.center.lat, lng:g.center.lon}, radius:g.radius||0,
+      const circleDash = new google.maps.Circle({
+        map: mapDash, center:{lat:g.center.lat, lng:g.center.lon}, radius:g.radius||0,
         strokeColor:'#64b5f6', fillColor:'#64b5f6', fillOpacity:0.09, strokeOpacity:0.9
       });
-      overlayById.set(g.id, { kind:'circle', circle });
-    } else if(g.type==='polygon' && Array.isArray(g.polygonPoints) && g.polygonPoints.length>2){
-      const polygon = new google.maps.Polygon({
-        map, paths: g.polygonPoints.map(p=>({lat:p.lat,lng:p.lon})),
+      const circleGeo = new google.maps.Circle({
+        map: mapGeo, center:{lat:g.center.lat, lng:g.center.lon}, radius:g.radius||0,
+        strokeColor:'#64b5f6', fillColor:'#64b5f6', fillOpacity:0.09, strokeOpacity:0.9
+      });
+      overlayById.set(g.id, { kind:'circle', dash: circleDash, geo: circleGeo });
+    } else if(g.type==='polygon' && g.polygonPoints?.length>2){
+      const polygonDash = new google.maps.Polygon({
+        map: mapDash, paths: g.polygonPoints.map(p=>({lat:p.lat,lng:p.lon})),
         strokeColor:'#ffcc80', fillColor:'#ffcc80', fillOpacity:0.08, strokeOpacity:0.9
       });
-      overlayById.set(g.id, { kind:'polygon', polygon });
+      const polygonGeo = new google.maps.Polygon({
+        map: mapGeo, paths: g.polygonPoints.map(p=>({lat:p.lat,lng:p.lon})),
+        strokeColor:'#ffcc80', fillColor:'#ffcc80', fillOpacity:0.08, strokeOpacity:0.9
+      });
+      overlayById.set(g.id, { kind:'polygon', dash: polygonDash, geo: polygonGeo });
     }
   }
-  renderGeofenceList();
+  renderGeofenceLists();
 }
-
 function destroyOverlay(ov){
   if(!ov) return;
-  if(ov.kind==='circle' && ov.circle) ov.circle.setMap(null);
-  if(ov.kind==='polygon' && ov.polygon) ov.polygon.setMap(null);
+  if(ov.dash) ov.dash.setMap(null);
+  if(ov.geo) ov.geo.setMap(null);
 }
 
-function renderGeofenceList(){
+function renderGeofenceLists(){
+  // Dashboard list
   listEl.innerHTML='';
+  // Geofencing list
+  listGeoEl.innerHTML='';
+
   for(const g of geofences){
-    const li = document.createElement('li');
-    const left = document.createElement('div');
-    left.innerHTML = `<strong>${escapeHTML(g.name)}</strong> <span class="tag">${g.type}</span>`;
-    const right = document.createElement('div');
-    const flyBtn = btn('Fly');
-    flyBtn.onclick = ()=> flyTo(g);
-    const delBtn = btn('Delete');
-    delBtn.onclick = ()=> deleteGeofence(g.id);
-    right.appendChild(flyBtn);
-    right.appendChild(delBtn);
-    li.appendChild(left);
-    li.appendChild(right);
-    listEl.appendChild(li);
+    const li1 = renderLi(g, true);
+    const li2 = renderLi(g, false);
+    listEl.appendChild(li1);
+    listGeoEl.appendChild(li2);
   }
 }
-function btn(label){ const b=document.createElement('button'); b.textContent=label; return b; }
-function escapeHTML(s){ return s.replace(/[&<>'"]/g, c=>({ '&':'&amp;','<':'&lt;','>':'&gt;',"\'":'&#39;','"':'&quot;' }[c])); }
 
-function flyTo(g){
+function renderLi(g, onDashboard){
+  const li = document.createElement('li');
+  const left = document.createElement('div');
+  left.innerHTML = `<strong>${escapeHTML(g.name)}</strong> <span class="tag">${g.type}</span>`;
+  const right = document.createElement('div');
+  const flyBtn = btn('Fly');
+  flyBtn.onclick = ()=> flyTo(g, onDashboard);
+  const delBtn = btn('Delete');
+  delBtn.onclick = ()=> deleteGeofence(g.id);
+  right.appendChild(flyBtn);
+  right.appendChild(delBtn);
+  li.appendChild(left);
+  li.appendChild(right);
+  return li;
+}
+
+function btn(label){ const b=document.createElement('button'); b.textContent=label; return b; }
+function escapeHTML(s){ return s.replace(/[&<>'"]/g, c=>({ '&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;' }[c])); }
+
+function flyTo(g, onDashboard){
+  const map = onDashboard ? mapDash : mapGeo;
   if(g.type==='circle' && g.center){
     map.setCenter({lat:g.center.lat, lng:g.center.lon});
     map.setZoom(15);
@@ -285,17 +349,19 @@ function deleteGeofence(id){
 }
 
 /***********************
- * Device polling + inside/outside logic
+ * Polling & outside logic
  ************************/
+function serverBase(){
+  const s = (serverBaseDashInput.value || serverBaseInput.value || DEFAULT_SERVER).trim();
+  return s.replace(/\/$/, '');
+}
 async function fetchJSON(url){
   const res = await fetch(url);
   if(!res.ok) throw new Error(`${res.status} ${res.statusText}`);
   return res.json();
 }
-function serverBase(){ return (serverBaseInput.value||DEFAULT_SERVER).replace(/\/$/,''); }
 async function pollOnce(){
   try{
-    // Your existing endpoints – adapt if different
     const gps = await fetchJSON(serverBase()+"/api/download/gps");
     const batt = await fetchJSON(serverBase()+"/api/download/batt-percentage");
 
@@ -303,22 +369,25 @@ async function pollOnce(){
     const lon = Number(gps.longitude || gps.lng || gps[1] || 0);
     const ts = gps.timestamp ? new Date(gps.timestamp) : new Date();
 
-    // Update UI
+    // UI
     latEl.textContent = lat.toFixed(6);
     lonEl.textContent = lon.toFixed(6);
+    document.getElementById('lat-geo').textContent = lat.toFixed(6);
+    document.getElementById('lon-geo').textContent = lon.toFixed(6);
     updatedEl.textContent = ts.toLocaleString();
     batteryEl.textContent = (batt.percentage!=null ? batt.percentage+'%' : '–');
 
-    // Move marker
-    if(gmDeviceMarker) gmDeviceMarker.position = { lat, lng: lon };
-    map?.setCenter({lat, lng: lon});
+    // Move markers
+    if(mkDash) mkDash.position = { lat, lng: lon };
+    if(mkGeo) mkGeo.position = { lat, lng: lon };
+    mapDash?.setCenter({lat, lng: lon});
 
-    // Inside/outside check
+    // Inside/outside
     const insideAny = geofences.some(g => isInside(g, lat, lon));
     insideFlag.textContent = insideAny ? 'Inside' : 'Outside';
     insideFlag.style.borderColor = insideAny ? '#2e7d32' : '#b71c1c';
+    insideGeoEl.textContent = insideAny ? 'Inside' : 'Outside';
 
-    // Throttled server vibrate if OUTSIDE
     if(!insideAny){
       const now = Date.now();
       if(now - lastOutsideSentAt > VIBRATE_COOLDOWN_MS){
@@ -338,7 +407,7 @@ async function pollOnce(){
 
 async function sendVibrate(){
   const params = new URLSearchParams();
-  params.set('deviceId', deviceIdInput.value || 'default');
+  params.set('deviceId', (deviceIdInput.value || 'default'));
   params.set('command', 'vibrate');
   await fetch(serverBase()+"/api/upload/command", {
     method:'POST',
@@ -348,8 +417,8 @@ async function sendVibrate(){
 }
 
 setInterval(pollOnce, GPS_POLL_MS);
-pollOnce(); // initial
+pollOnce();
 
-/***********************
- * Utilities
- ************************/
+// Initial route
+if(!location.hash) location.hash = '#/dashboard';
+renderRoute();

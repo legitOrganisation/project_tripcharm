@@ -16,6 +16,7 @@ body{
   background:var(--bg);
   color:var(--text);
 }
+.hidden{ display:none !important; }
 .topbar{
   display:flex; align-items:center; justify-content:space-between;
   padding:12px 16px; border-bottom:1px solid var(--border);
@@ -24,6 +25,13 @@ body{
 .topbar h1{ font-size:18px; margin:0; font-weight:600; }
 .topbar .right{ display:flex; gap:8px; align-items:center; }
 .import-label{ border:1px solid var(--border); padding:6px 10px; border-radius:8px; cursor:pointer; color:var(--muted); }
+.brand{ display:flex; align-items:center; gap:4px; }
+.tabs{ display:flex; gap:8px; }
+.tab{
+  color:#cfe6ff; text-decoration:none; padding:6px 10px; border-radius:8px; border:1px solid transparent;
+}
+.tab.active{ border-color:var(--accent); background:#15223e; }
+
 #geofence-panel{
   background:var(--panel);
   border-bottom:1px solid var(--border);
@@ -34,8 +42,13 @@ body{
 #gf-status.muted{ color:var(--muted); }
 .badge{ padding:4px 8px; border:1px solid var(--border); border-radius:999px; color:#ddd; }
 
-#main{ display:grid; grid-template-columns: 1fr 320px; gap:12px; padding:12px 16px; }
-#map-container{ height:70vh; }
+/* Two views share the same grid layout */
+.view{}
+.view #main, .view #main-geofencing { }
+#main, #main-geofencing{
+  display:grid; grid-template-columns: 1fr 320px; gap:12px; padding:12px 16px;
+}
+#map-container, #map-container-geo{ height:70vh; }
 
 aside .card{
   background:var(--card);
@@ -71,3 +84,9 @@ button.primary-outline{ border-color:var(--accent); color:#cde8ff; }
 button.success{ background:var(--success); border-color:#2e7d32; }
 button.danger{ background:var(--danger); border-color:#b71c1c; }
 button.secondary{ color:#cdd7e1; }
+
+/* Simple responsive */
+@media (max-width: 960px){
+  #main, #main-geofencing{ grid-template-columns: 1fr; }
+  .small-hide{ display:none; }
+}
