@@ -96,6 +96,15 @@
           <a href="#/geofencing" class="primary-outline" style="padding:6px 10px; display:inline-block; border-radius:8px; border:1px solid var(--accent);">Open Geofencing</a>
         </div>
       </div>
+
+      <div class="card">
+        <h3>Events <span id="events-badge" class="pill">0</span></h3>
+        <ul id="events-list" class="list list-compact"></ul>
+        <div class="row" style="margin-top:8px;">
+          <button id="ack-events" class="secondary">Acknowledge All</button>
+          <button id="refresh-events" class="secondary">Refresh</button>
+        </div>
+      </div>
     </aside>
   </main>
 
@@ -133,6 +142,9 @@
   <footer class="footer">
     <span>Dashboard shows live location; Geofencing lets you draw zones. All zones persist in your browser (localStorage).</span>
   </footer>
+
+  <!-- Toasts -->
+  <div id="toasts"></div>
 
   <script type="module" src="index.js"></script>
 </body>

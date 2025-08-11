@@ -46,7 +46,7 @@ body{
 .view{}
 .view #main, .view #main-geofencing { }
 #main, #main-geofencing{
-  display:grid; grid-template-columns: 1fr 320px; gap:12px; padding:12px 16px;
+  display:grid; grid-template-columns: 1fr 360px; gap:12px; padding:12px 16px;
 }
 #map-container, #map-container-geo{ height:70vh; }
 
@@ -58,9 +58,10 @@ aside .card{
   margin-bottom:12px;
   box-shadow:0 0 0 1px rgba(255,255,255,0.02) inset;
 }
-.card h3{ margin:0 0 8px 0; font-size:15px; }
+.card h3{ margin:0 0 8px 0; font-size:15px; display:flex; align-items:center; gap:8px; }
 .kv{ display:flex; justify-content:space-between; padding:4px 0; color:#cbd5e1; }
 .list{ list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:8px; }
+.list-compact li{ padding:6px 8px; }
 .list li{
   display:flex; justify-content:space-between; align-items:center;
   border:1px solid var(--border); border-radius:8px; padding:8px;
@@ -69,10 +70,16 @@ aside .card{
 .list .tag{ font-size:12px; color:#a7b1c2; border:1px solid var(--border); padding:2px 6px; border-radius:999px; }
 .list button{ margin-left:6px; }
 
+.pill{
+  display:inline-flex; align-items:center; justify-content:center;
+  padding:2px 8px; font-size:12px; line-height:1.6;
+  background:#0b1328; border:1px solid var(--border); border-radius:999px; color:#cfe6ff;
+}
+
 .footer{ padding:10px 16px; color:var(--muted); border-top:1px solid var(--border); }
 
 input{
-  background:#0b1328; border:1px solid var(--border); color:var(--text);
+  background:#0b1328; border:1px solid var(--border); color:#e6edf3;
   padding:6px 8px; border-radius:8px;
 }
 button{
@@ -84,6 +91,24 @@ button.primary-outline{ border-color:var(--accent); color:#cde8ff; }
 button.success{ background:var(--success); border-color:#2e7d32; }
 button.danger{ background:var(--danger); border-color:#b71c1c; }
 button.secondary{ color:#cdd7e1; }
+
+/* Toasts */
+#toasts{
+  position: fixed;
+  right: 16px;
+  top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 9999;
+}
+.toast{
+  background:#12213a; border:1px solid #1a2b4b; color:#d9e7ff;
+  padding:10px 12px; border-radius:10px; box-shadow:0 8px 30px rgba(0,0,0,0.35);
+  max-width: 320px;
+}
+.toast strong{ display:block; margin-bottom:4px; }
+.toast.fade-out{ opacity:0; transition:opacity .3s ease-in-out; }
 
 /* Simple responsive */
 @media (max-width: 960px){

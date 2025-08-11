@@ -54,12 +54,19 @@ const listGeoEl = document.getElementById('gf-list-geo');
 const exportBtn = document.getElementById('export-btn');
 const importFile = document.getElementById('import-file');
 
+// Events panel
+const eventsListEl = document.getElementById('events-list');
+const eventsBadgeEl = document.getElementById('events-badge');
+const ackEventsBtn = document.getElementById('ack-events');
+const refreshEventsBtn = document.getElementById('refresh-events');
+const toastsEl = document.getElementById('toasts');
+
 /***********************
  * Maps objects
  ************************/
 let mapDash, mkDash;
 let mapGeo, mkGeo;
-let markerDash, markerGeo; // <--- ADDED
+let markerDash, markerGeo; // device pins
 let activeMode = null; // 'circle' | 'polygon' | null
 let tempCircle = null, tempPolygon = null, tempPoints = [];
 let lastOutsideSentAt = 0;
@@ -84,6 +91,12 @@ function saveGeofences(){
   renderGeofenceLists();
   drawAllOverlays();
 }
+
+/***********************
+ * Events store (client-side ack)
+ ************************/
+let lastEventSeenTs = Number(localStorage.getItem('lastEventSeenTs') || 0);
+let lastRenderedEventTs = 0;
 
 /***********************
  * Geometry
@@ -150,21 +163,19 @@ window.addEventListener('hashchange', renderRoute);
   mapGeo = mapGeoEl.innerMap;
   mkGeo = mkGeoEl.innerMarker;
 
-  // === ADDED markers ===
+  // Device pins
   markerDash = new google.maps.Marker({
     map: mapDash,
     position: { lat: 0, lng: 0 },
     title: "Device Location",
     icon: { url: "http://maps.google.com/mapfiles/ms/icons/red-dot.png" }
   });
-
   markerGeo = new google.maps.Marker({
     map: mapGeo,
     position: { lat: 0, lng: 0 },
     title: "Device Location",
     icon: { url: "http://maps.google.com/mapfiles/ms/icons/red-dot.png" }
   });
-  // ======================
 
   drawAllOverlays();
   renderGeofenceLists();
@@ -220,6 +231,18 @@ importFile.onchange = async (e)=>{
   }catch(err){ alert('Import failed: '+err.message); }
   finally{ importFile.value=''; }
 };
+
+ackEventsBtn.onclick = ()=>{
+  // Mark all currently rendered events as seen
+  if(lastRenderedEventTs){
+    lastEventSeenTs = lastRenderedEventTs;
+    localStorage.setItem('lastEventSeenTs', String(lastEventSeenTs));
+    showToast('Events acknowledged.');
+    // update highlighting immediately
+    highlightNewEventsInList();
+  }
+};
+refreshEventsBtn.onclick = ()=> fetchAndRenderEvents();
 
 function setStatus(msg){ statusBadge.textContent = msg; }
 
@@ -426,11 +449,8 @@ async function pollOnce(){
     // Move markers
     if(mkDash) mkDash.position = { lat, lng: lon };
     if(mkGeo) mkGeo.position = { lat, lng: lon };
-
-    // NEW marker updates
     if(markerDash) markerDash.setPosition({ lat, lng: lon });
     if(markerGeo) markerGeo.setPosition({ lat, lng: lon });
-
     mapDash?.setCenter({lat, lng: lon});
 
     // Inside/outside check
@@ -451,6 +471,9 @@ async function pollOnce(){
     }else{
       statusEl.textContent = 'inside';
     }
+
+    // Also fetch events on each poll
+    await fetchAndRenderEvents();
   }catch(err){
     statusEl.textContent = 'error: '+err.message;
     console.error(err);
@@ -474,3 +497,121 @@ pollOnce();
 // Initial route
 if(!location.hash) location.hash = '#/dashboard';
 renderRoute();
+
+/***********************
+ * Events fetch + UI
+ ************************/
+function timeAgo(date){
+  const s = Math.floor((Date.now() - date.getTime())/1000);
+  if(s < 60) return s+'s ago';
+  const m = Math.floor(s/60);
+  if(m < 60) return m+'m ago';
+  const h = Math.floor(m/60);
+  if(h < 24) return h+'h ago';
+  const d = Math.floor(h/24);
+  return d+'d ago';
+}
+function parseEventLatLon(gpsVal){
+  if(!gpsVal) return {lat:null, lon:null};
+  if(typeof gpsVal === 'object' && !Array.isArray(gpsVal)){
+    return { lat: parseFloat(gpsVal.lat)||null, lon: parseFloat(gpsVal.lon)||null };
+  }
+  if(typeof gpsVal === 'string'){
+    const parts = gpsVal.split(',');
+    if(parts.length>=4){
+      const lat = parseFloat(parts[0]) * (parts[1]==='S'?-1:1);
+      const lon = parseFloat(parts[2]) * (parts[3]==='W'?-1:1);
+      return { lat: isFinite(lat)?lat:null, lon: isFinite(lon)?lon:null };
+    }
+  }
+  if(Array.isArray(gpsVal)){
+    const lat = parseFloat(gpsVal[0]), lon = parseFloat(gpsVal[1]);
+    return { lat: isFinite(lat)?lat:null, lon: isFinite(lon)?lon:null };
+  }
+  return {lat:null, lon:null};
+}
+function showToast(msg, title='New Event'){
+  if(!toastsEl) return;
+  const div = document.createElement('div');
+  div.className = 'toast';
+  div.innerHTML = `<strong>${title}</strong><div>${msg}</div>`;
+  toastsEl.appendChild(div);
+  setTimeout(()=>{
+    div.classList.add('fade-out');
+    setTimeout(()=> div.remove(), 300);
+  }, 4000);
+  // System notification if permitted
+  if('Notification' in window){
+    if(Notification.permission==='granted'){
+      new Notification(title, { body: msg });
+    } else if(Notification.permission==='default'){
+      Notification.requestPermission().then(res=>{
+        if(res==='granted') new Notification(title, { body: msg });
+      });
+    }
+  }
+}
+
+function highlightNewEventsInList(){
+  // Add a subtle highlight to any li with data-ts > lastEventSeenTs
+  const items = eventsListEl?.querySelectorAll('li[data-ts]') || [];
+  items.forEach(li=>{
+    const ts = Number(li.getAttribute('data-ts')||0);
+    li.style.outline = ts > lastEventSeenTs ? '1px solid #1a6fb8' : 'none';
+  });
+}
+
+async function fetchAndRenderEvents(){
+  try{
+    const events = await fetchJSON(serverBase()+"/api/download/events");
+    // Sort by timestamp ascending
+    events.sort((a,b)=> new Date(a.timestamp) - new Date(b.timestamp));
+    // Compute totals
+    eventsBadgeEl.textContent = events.length;
+
+    // Detect new events
+    const newOnes = events.filter(e => new Date(e.timestamp).getTime() > lastEventSeenTs);
+    if(newOnes.length){
+      const newest = newOnes[newOnes.length-1];
+      const when = timeAgo(new Date(newest.timestamp));
+      showToast(`${newOnes.length} new ${newOnes.length>1?'events':'event'} (latest: ${newest.type || 'event'} • ${when})`, 'Events');
+    }
+
+    // Render list
+    renderEventsList(events);
+
+    // Track latest rendered ts
+    const last = events[events.length-1];
+    lastRenderedEventTs = last ? new Date(last.timestamp).getTime() : lastRenderedEventTs;
+
+    // Highlight
+    highlightNewEventsInList();
+  }catch(err){
+    console.error('events error:', err);
+  }
+}
+
+function renderEventsList(events){
+  if(!eventsListEl) return;
+  eventsListEl.innerHTML = '';
+  for(const ev of events.slice().reverse()){ // newest first in UI
+    const ts = new Date(ev.timestamp);
+    const { lat, lon } = parseEventLatLon(ev.gps);
+    const li = document.createElement('li');
+    li.setAttribute('data-ts', String(ts.getTime()));
+    const left = document.createElement('div');
+    left.innerHTML = `<strong>${escapeHTML(ev.type || 'event')}</strong><div class="muted" style="font-size:12px;">${timeAgo(ts)} • ${lat!=null?lat.toFixed(5):'–'}, ${lon!=null?lon.toFixed(5):'–'}</div>`;
+    const right = document.createElement('div');
+    const fly = btn('Fly');
+    fly.onclick = ()=>{
+      if(lat!=null && lon!=null){
+        mapDash.setCenter({lat, lng: lon});
+        mapDash.setZoom(16);
+      }
+    };
+    right.appendChild(fly);
+    li.appendChild(left);
+    li.appendChild(right);
+    eventsListEl.appendChild(li);
+  }
+}
