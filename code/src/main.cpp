@@ -1,75 +1,33 @@
-// #include <Arduino.h>
-// #include <Wire.h>
-// #include <Adafruit_BNO08x.h>
-
 #include <Arduino.h>
-#include <Adafruit_BNO08x.h>
 
 // SIM7600
 HardwareSerial LTEGNSS(0);  // UART0 for SIM7600
-String phoneNumber = "+6582865626";
 
-// Button
-#define BUTTON_A_PIN D10
-bool lastButtonState = HIGH;
-
-// BNO08x
-#define BNO08X_RESET -1
-Adafruit_BNO08x bno08x(BNO08X_RESET);
-sh2_SensorValue_t sensorValue;
-#define IMPACT_THRESHOLD_G 40
-
-// Flags
-bool messageSentRecently = false;
-unsigned long lastTriggerTime = 0;
-const unsigned long triggerCooldown = 10000;  // ms
-
-void setup() {
-  Serial.begin(115200);
-  delay(10000);  // Let USB settle
-
-  // Button setup
-  pinMode(BUTTON_A_PIN, INPUT);
-
-  // SIM7600 init
-  LTEGNSS.begin(115200, SERIAL_8N1, -1, -1);
-  Serial.println("Initializing GPS...");
-  LTEGNSS.println("AT+CGPS=1");  // Enable GPS
-  delay(2000);
-
-  // BNO08x init
-  Serial.println("Initializing BNO08x...");
-  if (!bno08x.begin_I2C()) {
-    Serial.println("Failed to find BNO08x");
-    while (1) delay(10);
+// Send AT command and wait for a response
+String sendAT(String cmd, uint32_t wait_ms = 500) {
+  LTEGNSS.println(cmd);
+  delay(wait_ms);
+  String response = "";
+  while (LTEGNSS.available()) {
+    response += char(LTEGNSS.read());
   }
-  Serial.println("BNO08x Found!");
-  bno08x.enableReport(SH2_ACCELEROMETER);
+  response.trim();
+  Serial.println("> " + cmd);
+  Serial.println(response);
+  return response;
 }
 
+// Get GPS info
 String getGPSInfo() {
-  LTEGNSS.println("AT+CGPSINFO");
-  delay(1000);
-
-  String response = "";
-  unsigned long timeout = millis();
-  while (millis() - timeout < 2000) {
-    if (LTEGNSS.available()) {
-      char c = LTEGNSS.read();
-      response += c;
-    }
-  }
-
-  Serial.println("GPS response:");
-  Serial.println(response);
-
-  int idx = response.indexOf("+CGPSINFO:");
-  if (idx == -1 || response.indexOf(",,,,,,,,") != -1) {
+  String resp = sendAT("AT+CGPSINFO", 1000);
+  int idx = resp.indexOf("+CGPSINFO:");
+  if (idx == -1 || resp.indexOf(",,,,,,,,") != -1) {
     return "GPS not ready yet.";
   }
 
-  int start = response.indexOf(":", idx) + 1;
-  String gpsData = response.substring(start);
+  // Extract and format lat/lon
+  int start = resp.indexOf(":", idx) + 1;
+  String gpsData = resp.substring(start);
   gpsData.trim();
 
   int latEnd = gpsData.indexOf(',');
@@ -84,63 +42,34 @@ String getGPSInfo() {
 
   if (lat.length() < 3 || lon.length() < 3) return "Invalid GPS fix.";
 
-  return "SOS triggered. GPS: " + lat + " " + ns + ", " + lon + " " + ew;
+  return "GPS: " + lat + " " + ns + ", " + lon + " " + ew;
 }
 
-void sendSMS(String number, String message) {
-  Serial.println("Sending SMS...");
-  LTEGNSS.println("AT+CMGF=1");
-  delay(500);
-  LTEGNSS.print("AT+CMGS=\"");
-  LTEGNSS.print(number);
-  LTEGNSS.println("\"");
-  delay(500);
-  LTEGNSS.print(message);
-  LTEGNSS.write(26);  // Ctrl+Z
-  delay(3000);
-  Serial.println("SMS sent.");
-}
+void setup() {
+  Serial.begin(115200);
+  delay(2000);
+  LTEGNSS.begin(115200, SERIAL_8N1, -1, -1); // RX/TX pins configured by your board's default UART0
+  delay(2000);
 
-void checkImpact() {
-  if (bno08x.wasReset()) {
-    Serial.println("BNO08x was reset");
-    bno08x.enableReport(SH2_ACCELEROMETER);
-  }
+  Serial.println("=== SIM7600G-H GPS Assisted Mode Test ===");
 
-  if (bno08x.getSensorEvent(&sensorValue) && sensorValue.sensorId == SH2_ACCELEROMETER) {
-    float ax = sensorValue.un.accelerometer.x;
-    float ay = sensorValue.un.accelerometer.y;
-    float az = sensorValue.un.accelerometer.z;
-    float accTotal = sqrt(ax * ax + ay * ay + az * az);
+  sendAT("AT");            // Basic check
+  sendAT("AT+CFUN=1", 1000); // Full functionality
 
-    if (accTotal > IMPACT_THRESHOLD_G && millis() - lastTriggerTime > triggerCooldown) {
-      Serial.print("Impact detected: ");
-      Serial.println(accTotal, 2);
-      lastTriggerTime = millis();
-      String msg = getGPSInfo();
-      sendSMS(phoneNumber, "Impact detected! " + msg);
-    }
-  }
+  // Open and close network to ensure clean state
+  sendAT("AT+NETCLOSE", 1000);
+  delay(1000);
+  sendAT("AT+NETOPEN", 3000); // Open data connection
+  delay(1000);
+
+  sendAT("AT+CGPS=0", 1000);   // Ensure GPS is off
+  delay(1000);
+  sendAT("AT+CGPS=1,2", 1000); // Enable GPS in MS-based A-GPS mode
+  Serial.println("Waiting for GPS lock...");
 }
 
 void loop() {
-  // Check button
-  bool buttonState = digitalRead(BUTTON_A_PIN);
-  if (lastButtonState == HIGH && buttonState == LOW && millis() - lastTriggerTime > triggerCooldown) {
-    Serial.println("Button A pressed!");
-    lastTriggerTime = millis();
-    String msg = getGPSInfo();
-    sendSMS(phoneNumber, msg);
-  }
-  lastButtonState = buttonState;
-
-  // Check for impact
-  checkImpact();
-
-  // Clear LTEGNSS buffer
-  while (LTEGNSS.available()) {
-    Serial.write(LTEGNSS.read());
-  }
-
-  delay(50);
+  String gps = getGPSInfo();
+  Serial.println(gps);
+  delay(5000); // Poll every 5 seconds
 }
