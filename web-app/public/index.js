@@ -426,6 +426,62 @@ async function fetchJSON(url){
   if(!res.ok) throw new Error(`${res.status} ${res.statusText}`);
   return res.json();
 }
+// Pull geofences from the server and replace local copy
+async function fetchGeofencesFromServer() {
+  try {
+    const resp = await fetchJSON(serverBase() + "/api/download/geofencing-data");
+
+    // The server returns an array (queue) of uploads; pick the latest that includes geofences.
+    let serverGfs = [];
+    if (Array.isArray(resp)) {
+      for (let i = resp.length - 1; i >= 0; i--) {
+        const entry = resp[i];
+        if (entry?.data?.geofences && Array.isArray(entry.data.geofences)) {
+          serverGfs = entry.data.geofences;
+          break;
+        }
+        if (Array.isArray(entry?.geofences)) {
+          serverGfs = entry.geofences;
+          break;
+        }
+        if (Array.isArray(entry?.data)) {
+          // some uploads may have pushed the array directly as data
+          serverGfs = entry.data;
+          break;
+        }
+      }
+    } else if (resp && Array.isArray(resp.geofences)) {
+      serverGfs = resp.geofences;
+    }
+
+    if (!serverGfs.length) {
+      // Nothing usable found; don't overwrite local
+      return;
+    }
+
+    // Normalize shape to what the UI expects
+    const normalized = serverGfs.map(g => ({
+      id: g.id || Math.random().toString(36).slice(2),
+      name: g.name || "Unnamed Zone",
+      type: (g.type === "polygon" ? "polygon" : "circle"),
+      radius: g.radius ?? 0,
+      center: g.center && g.center.lat != null && g.center.lon != null
+        ? { lat: Number(g.center.lat), lon: Number(g.center.lon) }
+        : null,
+      polygonPoints: Array.isArray(g.polygonPoints)
+        ? g.polygonPoints.map(p => ({ lat: Number(p.lat), lon: Number(p.lon) }))
+        : []
+    }));
+
+    // Replace local store and redraw
+    geofences = normalized;
+    saveGeofences();      // writes localStorage + redraws overlays + lists
+    setStatus("Geofences downloaded");
+  } catch (err) {
+    console.error("Download geofences error:", err);
+    // Keep UI usable even if server fetch fails
+  }
+}
 async function uploadGeofencesToServer(reason = 'manual') {
   try {
     const payload = {
@@ -552,7 +608,7 @@ pollOnce();
 if(!location.hash) location.hash = '#/dashboard';
 renderRoute();
 
-window.addEventListener('load', () => uploadGeofencesToServer('init'));
+window.addEventListener('load', () => fetchGeofencesFromServer());
 
 /***********************
  * Events fetch + UI
