@@ -59,6 +59,7 @@ const importFile = document.getElementById('import-file');
  ************************/
 let mapDash, mkDash;
 let mapGeo, mkGeo;
+let markerDash, markerGeo; // <--- ADDED
 let activeMode = null; // 'circle' | 'polygon' | null
 let tempCircle = null, tempPolygon = null, tempPoints = [];
 let lastOutsideSentAt = 0;
@@ -148,6 +149,22 @@ window.addEventListener('hashchange', renderRoute);
   // Geofencing map
   mapGeo = mapGeoEl.innerMap;
   mkGeo = mkGeoEl.innerMarker;
+
+  // === ADDED markers ===
+  markerDash = new google.maps.Marker({
+    map: mapDash,
+    position: { lat: 0, lng: 0 },
+    title: "Device Location",
+    icon: { url: "http://maps.google.com/mapfiles/ms/icons/red-dot.png" }
+  });
+
+  markerGeo = new google.maps.Marker({
+    map: mapGeo,
+    position: { lat: 0, lng: 0 },
+    title: "Device Location",
+    icon: { url: "http://maps.google.com/mapfiles/ms/icons/red-dot.png" }
+  });
+  // ======================
 
   drawAllOverlays();
   renderGeofenceLists();
@@ -409,6 +426,11 @@ async function pollOnce(){
     // Move markers
     if(mkDash) mkDash.position = { lat, lng: lon };
     if(mkGeo) mkGeo.position = { lat, lng: lon };
+
+    // NEW marker updates
+    if(markerDash) markerDash.setPosition({ lat, lng: lon });
+    if(markerGeo) markerGeo.setPosition({ lat, lng: lon });
+
     mapDash?.setCenter({lat, lng: lon});
 
     // Inside/outside check
