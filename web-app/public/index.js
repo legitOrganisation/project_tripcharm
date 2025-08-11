@@ -7,6 +7,7 @@
 const DEFAULT_SERVER = localStorage.getItem('serverBase') || "http://ma8w.ddns.net:3000";
 const GPS_POLL_MS = 5000;
 const VIBRATE_COOLDOWN_MS = 60_000;
+const GEOFENCE_PULL_MS = 20000; // periodic server pull to reflect deletions/changes
 
 /***********************
  * DOM references
@@ -70,6 +71,7 @@ let markerDash, markerGeo; // device pins
 let activeMode = null; // 'circle' | 'polygon' | null
 let tempCircle = null, tempPolygon = null, tempPoints = [];
 let lastOutsideSentAt = 0;
+let lastGeoPullAt = 0;
 const overlayById = new Map();
 
 // Web components
@@ -245,7 +247,7 @@ importFile.onchange = async (e)=>{
     else if(Array.isArray(obj.geofences)) geofences = obj.geofences;
     else throw new Error('Invalid file structure');
     saveGeofences();
-    uploadGeofencesToServer('import');
+    uploadGeofencesToServer('import'); // upload after import
     setStatus('Imported geofences');
   }catch(err){ alert('Import failed: '+err.message); }
   finally{ importFile.value=''; }
@@ -310,14 +312,14 @@ function onSave(){
     const g = { id: rnd(), name, type:'circle', center:{ lat: tempPoints[0].lat, lon: tempPoints[0].lon }, radius };
     geofences.push(g);
     saveGeofences();
-    uploadGeofencesToServer('save');
+    uploadGeofencesToServer('save'); // upload after save
     clearTempOverlays();
     setStatus(`Saved circle "${name}"`);
   } else if(activeMode==='polygon' && tempPoints.length>=3){
     const g = { id: rnd(), name, type:'polygon', polygonPoints: tempPoints.slice() };
     geofences.push(g);
     saveGeofences();
-    uploadGeofencesToServer('save');
+    uploadGeofencesToServer('save'); // upload after save
     clearTempOverlays();
     setStatus(`Saved polygon "${name}"`);
   } else {
@@ -411,7 +413,7 @@ function deleteGeofence(id){
   if(!confirm('Delete this geofence?')) return;
   geofences = geofences.filter(x=>x.id!==id);
   saveGeofences();
-  uploadGeofencesToServer('delete');
+  uploadGeofencesToServer('delete'); // upload after delete
 }
 
 /***********************
@@ -426,40 +428,37 @@ async function fetchJSON(url){
   if(!res.ok) throw new Error(`${res.status} ${res.statusText}`);
   return res.json();
 }
-// Pull geofences from the server and replace local copy
+
+// Pull geofences from the server and replace local copy (even if empty)
 async function fetchGeofencesFromServer() {
   try {
     const resp = await fetchJSON(serverBase() + "/api/download/geofencing-data");
 
-    // The server returns an array (queue) of uploads; pick the latest that includes geofences.
     let serverGfs = [];
+    let found = false;
+
     if (Array.isArray(resp)) {
       for (let i = resp.length - 1; i >= 0; i--) {
         const entry = resp[i];
         if (entry?.data?.geofences && Array.isArray(entry.data.geofences)) {
-          serverGfs = entry.data.geofences;
-          break;
+          serverGfs = entry.data.geofences; found = true; break;
         }
         if (Array.isArray(entry?.geofences)) {
-          serverGfs = entry.geofences;
-          break;
+          serverGfs = entry.geofences; found = true; break;
         }
         if (Array.isArray(entry?.data)) {
-          // some uploads may have pushed the array directly as data
-          serverGfs = entry.data;
-          break;
+          serverGfs = entry.data; found = true; break;
         }
       }
     } else if (resp && Array.isArray(resp.geofences)) {
-      serverGfs = resp.geofences;
+      serverGfs = resp.geofences; found = true;
     }
 
-    if (!serverGfs.length) {
-      // Nothing usable found; don't overwrite local
+    if (!found) {
+      // No geofence payload found on the server; keep local as-is.
       return;
     }
 
-    // Normalize shape to what the UI expects
     const normalized = serverGfs.map(g => ({
       id: g.id || Math.random().toString(36).slice(2),
       name: g.name || "Unnamed Zone",
@@ -473,15 +472,15 @@ async function fetchGeofencesFromServer() {
         : []
     }));
 
-    // Replace local store and redraw
-    geofences = normalized;
-    saveGeofences();      // writes localStorage + redraws overlays + lists
+    geofences = normalized; // may be []
+    saveGeofences();        // writes localStorage + redraws overlays/lists
     setStatus("Geofences downloaded");
   } catch (err) {
     console.error("Download geofences error:", err);
-    // Keep UI usable even if server fetch fails
   }
 }
+
+// Upload geofences to server
 async function uploadGeofencesToServer(reason = 'manual') {
   try {
     const payload = {
@@ -514,6 +513,7 @@ async function uploadGeofencesToServer(reason = 'manual') {
     setStatus('Failed to upload geofences');
   }
 }
+
 async function pollOnce(){
   try{
     const gpsArray = await fetchJSON(serverBase()+"/api/download/gps");
@@ -526,10 +526,12 @@ async function pollOnce(){
 
     if (latestGPS.gps !== undefined && latestGPS.gps !== null) {
       if (typeof latestGPS.gps === "object" && !Array.isArray(latestGPS.gps)) {
+        // { lat, lon }
         lat = parseFloat(latestGPS.gps.lat) || 0;
         lon = parseFloat(latestGPS.gps.lon) || 0;
       } 
       else if (typeof latestGPS.gps === "string") {
+        // "1.2345,N,103.6789,E"
         const parts = latestGPS.gps.split(',');
         if (parts.length >= 4) {
           lat = parseFloat(parts[0]) * (parts[1] === 'S' ? -1 : 1);
@@ -537,6 +539,7 @@ async function pollOnce(){
         }
       } 
       else if (Array.isArray(latestGPS.gps)) {
+        // [lat, lon]
         lat = parseFloat(latestGPS.gps[0]) || 0;
         lon = parseFloat(latestGPS.gps[1]) || 0;
       }
@@ -582,8 +585,14 @@ async function pollOnce(){
       statusEl.textContent = 'inside';
     }
 
-    // Also fetch events on each poll
+    // Fetch events each poll
     await fetchAndRenderEvents();
+
+    // Periodically refresh geofences from server (reflect deletions)
+    if (Date.now() - lastGeoPullAt > GEOFENCE_PULL_MS) {
+      await fetchGeofencesFromServer();
+      lastGeoPullAt = Date.now();
+    }
   }catch(err){
     statusEl.textContent = 'error: '+err.message;
     console.error(err);
@@ -607,8 +616,6 @@ pollOnce();
 // Initial route
 if(!location.hash) location.hash = '#/dashboard';
 renderRoute();
-
-window.addEventListener('load', () => fetchGeofencesFromServer());
 
 /***********************
  * Events fetch + UI
@@ -719,3 +726,25 @@ function renderEventsList(events){
     eventsListEl.appendChild(li);
   }
 }
+
+/***********************
+ * Cross-tab localStorage sync
+ ************************/
+// If another tab changes local geofences, mirror it here
+window.addEventListener('storage', (e) => {
+  if (e.key === 'geofences') {
+    try { geofences = JSON.parse(e.newValue || '[]'); }
+    catch { geofences = []; }
+    renderGeofenceLists();
+    drawAllOverlays();
+    setStatus('Geofences synced from another tab');
+  }
+});
+
+/***********************
+ * Startup sync hooks
+ ************************/
+// Pull from server at startup (before any upload-on-load)
+window.addEventListener('load', () => fetchGeofencesFromServer());
+// Optionally seed server with whatever is local on first load (keep below the fetch)
+window.addEventListener('load', () => uploadGeofencesToServer('init'));
