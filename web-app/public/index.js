@@ -370,18 +370,28 @@ async function pollOnce(){
 
     let lat = 0, lon = 0;
 
-    if (latestGPS.gps !== undefined) {
-      if (typeof latestGPS.gps === "string") {
+    if (latestGPS.gps !== undefined && latestGPS.gps !== null) {
+      if (typeof latestGPS.gps === "object" && !Array.isArray(latestGPS.gps)) {
+        // Case: { lat: ..., lon: ... }
+        lat = parseFloat(latestGPS.gps.lat) || 0;
+        lon = parseFloat(latestGPS.gps.lon) || 0;
+      } 
+      else if (typeof latestGPS.gps === "string") {
+        // Case: "1.2345,N,103.6789,E"
         const parts = latestGPS.gps.split(',');
         if (parts.length >= 4) {
           lat = parseFloat(parts[0]) * (parts[1] === 'S' ? -1 : 1);
           lon = parseFloat(parts[2]) * (parts[3] === 'W' ? -1 : 1);
         }
-      } else if (Array.isArray(latestGPS.gps)) {
+      } 
+      else if (Array.isArray(latestGPS.gps)) {
+        // Case: [lat, lon]
         lat = parseFloat(latestGPS.gps[0]) || 0;
         lon = parseFloat(latestGPS.gps[1]) || 0;
       }
-    } else if (latestGPS.latitude !== undefined && latestGPS.longitude !== undefined) {
+    } 
+    else if (latestGPS.latitude !== undefined && latestGPS.longitude !== undefined) {
+      // Fallback: separate fields
       lat = parseFloat(latestGPS.latitude) || 0;
       lon = parseFloat(latestGPS.longitude) || 0;
     }
