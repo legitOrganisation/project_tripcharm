@@ -7,6 +7,7 @@ const PORT = 3000;
 
 // --- Config ---
 const COMMAND_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const MAX_QUEUE_LEN = 5;              // keep latest 5 for gps/batt/geofence
 
 // --- Enable CORS for all origins ---
 app.use(cors({
@@ -62,16 +63,46 @@ function pruneOldCommands() {
   }
 }
 
-// Prune once on startup just in case
+function keepLastN(arr, n) {
+  if (arr.length > n) arr.splice(0, arr.length - n);
+}
+
+function pruneSizedQueues() {
+  const before = {
+    gps: queues.gps.length,
+    batt: queues.battPercentage.length,
+    geo: queues.geofencingData.length
+  };
+  keepLastN(queues.gps, MAX_QUEUE_LEN);
+  keepLastN(queues.battPercentage, MAX_QUEUE_LEN);
+  keepLastN(queues.geofencingData, MAX_QUEUE_LEN);
+  const after = {
+    gps: queues.gps.length,
+    batt: queues.battPercentage.length,
+    geo: queues.geofencingData.length
+  };
+  const trimmed =
+    (before.gps - after.gps) +
+    (before.batt - after.batt) +
+    (before.geo - after.geo);
+  if (trimmed > 0) {
+    logWithTime(`Pruned ${trimmed} item(s) from gps/battery/geofencing to keep last ${MAX_QUEUE_LEN}`);
+    saveQueues();
+  }
+}
+
+// Prune once on startup
 pruneOldCommands();
+pruneSizedQueues();
 
 // ---------- UPLOAD ROUTES ----------
 
-// GPS upload
+// GPS upload (keep last 5)
 app.post('/api/upload/gps', (req, res) => {
   const gps = req.body.gps;
   if (gps) {
     queues.gps.push({ gps, timestamp: new Date().toISOString() });
+    keepLastN(queues.gps, MAX_QUEUE_LEN);
     saveQueues();
     logWithTime("GPS uploaded:", gps);
     res.send("GPS data uploaded");
@@ -80,15 +111,11 @@ app.post('/api/upload/gps', (req, res) => {
   }
 });
 
-// Command upload (supports 'clear' to wipe all commands)
+// Command upload (supports 'clear')
 app.post('/api/upload/command', (req, res) => {
   const command = req.body.command;
+  if (!command) return res.status(400).send("No command provided");
 
-  if (!command) {
-    return res.status(400).send("No command provided");
-  }
-
-  // Reserved admin command to clear all commands
   if (String(command).toLowerCase() === 'clear') {
     const count = queues.commands.length;
     queues.commands = [];
@@ -97,7 +124,6 @@ app.post('/api/upload/command', (req, res) => {
     return res.send(`All commands cleared (${count} removed)`);
   }
 
-  // Normal command path
   pruneOldCommands();
   queues.commands.push({ command, timestamp: new Date().toISOString() });
   saveQueues();
@@ -105,11 +131,12 @@ app.post('/api/upload/command', (req, res) => {
   res.send("Command uploaded");
 });
 
-// Battery percentage upload
+// Battery percentage upload (keep last 5)
 app.post('/api/upload/batt-percentage', (req, res) => {
   const percentage = req.body.percentage;
   if (percentage !== undefined) {
     queues.battPercentage.push({ percentage, timestamp: new Date().toISOString() });
+    keepLastN(queues.battPercentage, MAX_QUEUE_LEN);
     saveQueues();
     logWithTime("Battery percentage uploaded:", percentage);
     res.send("Battery percentage uploaded");
@@ -118,11 +145,12 @@ app.post('/api/upload/batt-percentage', (req, res) => {
   }
 });
 
-// Geofencing data upload
+// Geofencing data upload (keep last 5)
 app.post('/api/upload/geofencing-data', (req, res) => {
   const data = req.body.data;
   if (data) {
     queues.geofencingData.push({ data, timestamp: new Date().toISOString() });
+    keepLastN(queues.geofencingData, MAX_QUEUE_LEN);
     saveQueues();
     logWithTime("Geofencing data uploaded:", JSON.stringify(data));
     res.send("Geofencing data uploaded");
@@ -131,17 +159,11 @@ app.post('/api/upload/geofencing-data', (req, res) => {
   }
 });
 
-// Event upload (e.g., falls)
+// Event upload (unchanged behavior)
 app.post('/api/upload/event', (req, res) => {
   const { type, gps } = req.body;
-  if (!type) {
-    return res.status(400).send("No event type provided");
-  }
-  const event = {
-    type,
-    gps: gps || null,
-    timestamp: new Date().toISOString()
-  };
+  if (!type) return res.status(400).send("No event type provided");
+  const event = { type, gps: gps || null, timestamp: new Date().toISOString() };
   queues.events.push(event);
   saveQueues();
   logWithTime("Event uploaded:", JSON.stringify(event));
@@ -150,32 +172,38 @@ app.post('/api/upload/event', (req, res) => {
 
 // ---------- DOWNLOAD ROUTES ----------
 
-// GPS download
+// GPS download (ensure only last 5)
 app.get('/api/download/gps', (req, res) => {
+  keepLastN(queues.gps, MAX_QUEUE_LEN);
+  saveQueues();
   logWithTime("GPS data downloaded");
   res.json(queues.gps);
 });
 
-// Commands download (auto-prunes before returning)
+// Commands download (auto-prunes by time)
 app.get('/api/download/command', (req, res) => {
   pruneOldCommands();
   logWithTime("Command data downloaded");
   res.json(queues.commands);
 });
 
-// Battery percentage download
+// Battery percentage download (ensure only last 5)
 app.get('/api/download/batt-percentage', (req, res) => {
+  keepLastN(queues.battPercentage, MAX_QUEUE_LEN);
+  saveQueues();
   logWithTime("Battery percentage data downloaded");
   res.json(queues.battPercentage);
 });
 
-// Geofencing data download
+// Geofencing data download (ensure only last 5)
 app.get('/api/download/geofencing-data', (req, res) => {
+  keepLastN(queues.geofencingData, MAX_QUEUE_LEN);
+  saveQueues();
   logWithTime("Geofencing data downloaded");
   res.json(queues.geofencingData);
 });
 
-// Events download
+// Events download (unchanged)
 app.get('/api/download/events', (req, res) => {
   logWithTime("Events downloaded");
   res.json(queues.events);
