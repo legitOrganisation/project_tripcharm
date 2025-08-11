@@ -30,7 +30,7 @@ let queues = {
   commands: [],
   battPercentage: [],
   geofencingData: [],
-  events: [] // New: store device events like falls
+  events: []
 };
 
 try {
