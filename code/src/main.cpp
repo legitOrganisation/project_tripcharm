@@ -39,17 +39,18 @@ bool getGPSCoords(float &latDec, float &lonDec) {
 
   if (lat.length() < 3 || lon.length() < 3) return false;
 
-  // Convert from DDDMM.MMMM to decimal degrees
-  float latF = lat.substring(0, lat.length() - 7).toFloat() +
-               (lat.substring(lat.length() - 7).toFloat() / 60.0);
-  if (ns == "S") latF = -latF;
+  // Latitude: DDMM.MMMM
+  float lat_deg = lat.substring(0, 2).toFloat();
+  float lat_min = lat.substring(2).toFloat();
+  latDec = lat_deg + (lat_min / 60.0);
+  if (ns == "S") latDec = -latDec;
 
-  float lonF = lon.substring(0, lon.length() - 7).toFloat() +
-               (lon.substring(lon.length() - 7).toFloat() / 60.0);
-  if (ew == "W") lonF = -lonF;
+  // Longitude: DDDMM.MMMM
+  float lon_deg = lon.substring(0, 3).toFloat();
+  float lon_min = lon.substring(3).toFloat();
+  lonDec = lon_deg + (lon_min / 60.0);
+  if (ew == "W") lonDec = -lonDec;
 
-  latDec = latF;
-  lonDec = lonF;
   return true;
 }
 
