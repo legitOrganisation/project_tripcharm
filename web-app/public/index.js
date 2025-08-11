@@ -143,6 +143,11 @@ function renderRoute(){
   viewDashboard.classList.toggle('hidden', showGeo);
   document.getElementById('geofence-panel').classList.toggle('hidden', !showGeo);
   document.getElementById('main-geofencing').classList.toggle('hidden', !showGeo);
+  // Default to Circle mode when entering geofencing
+  if (showGeo && !activeMode) {
+    activeMode = 'circle';
+    setStatus('Circle mode: tap map to set center');
+  }
   // Ensure map tiles/layout update
   setTimeout(()=>{
     mapDash && google.maps.event.trigger(mapDash, 'resize');
@@ -177,6 +182,11 @@ window.addEventListener('hashchange', renderRoute);
     icon: { url: "http://maps.google.com/mapfiles/ms/icons/red-dot.png" }
   });
 
+  // Classic Maps click listener (in addition to gmp-click)
+  mapGeo.addListener('click', (e)=>{
+    handleGeoMapClick(e.latLng);
+  });
+
   drawAllOverlays();
   renderGeofenceLists();
   renderRoute();
@@ -200,8 +210,16 @@ deviceIdInput.addEventListener('change', ()=>{
 });
 deviceIdInput.value = localStorage.getItem('deviceId') || 'default';
 
-btnCircle.onclick = ()=>{ activeMode='circle'; tempPoints=[]; setStatus('Tap map to set center'); };
-btnPolygon.onclick = ()=>{ activeMode='polygon'; tempPoints=[]; setStatus('Tap map to add polygon vertices; Save when done'); };
+btnCircle.onclick = ()=>{
+  activeMode='circle'; tempPoints=[];
+  clearTempOverlays();
+  setStatus('Circle mode: tap map to set center');
+};
+btnPolygon.onclick = ()=>{
+  activeMode='polygon'; tempPoints=[];
+  clearTempOverlays();
+  setStatus('Polygon mode: tap map to add vertices; Save when done');
+};
 btnClear.onclick = ()=>{ clearTempOverlays(); setStatus('Cleared'); };
 btnSave.onclick = onSave;
 testVibrateBtn.onclick = async ()=>{ await sendVibrate(); setStatus('Vibrate command sent'); };
@@ -233,12 +251,10 @@ importFile.onchange = async (e)=>{
 };
 
 ackEventsBtn.onclick = ()=>{
-  // Mark all currently rendered events as seen
   if(lastRenderedEventTs){
     lastEventSeenTs = lastRenderedEventTs;
     localStorage.setItem('lastEventSeenTs', String(lastEventSeenTs));
     showToast('Events acknowledged.');
-    // update highlighting immediately
     highlightNewEventsInList();
   }
 };
@@ -249,9 +265,11 @@ function setStatus(msg){ statusBadge.textContent = msg; }
 /***********************
  * Map interactions
  ************************/
-mapGeoEl.addEventListener('gmp-click', (e)=>{
+// Unified click handler for geofencing map
+function handleGeoMapClick(latLng){
   if(!activeMode || !mapGeo) return;
-  const lat = e.detail.latLng.lat(), lon = e.detail.latLng.lng();
+  const lat = latLng.lat(), lon = latLng.lng();
+
   if(activeMode==='circle'){
     clearTempOverlays();
     const r = Number(radiusInput.value)||150;
@@ -260,6 +278,7 @@ mapGeoEl.addEventListener('gmp-click', (e)=>{
       strokeColor:'#2196F3', fillColor:'#2196F3', fillOpacity:0.2, strokeOpacity:0.9
     });
     tempPoints = [{lat,lon}];
+    setStatus(`Center set @ ${lat.toFixed(5)}, ${lon.toFixed(5)}`);
   } else if(activeMode==='polygon'){
     tempPoints.push({lat,lon});
     if(tempPolygon) tempPolygon.setMap(null);
@@ -267,7 +286,13 @@ mapGeoEl.addEventListener('gmp-click', (e)=>{
       map: mapGeo, paths: tempPoints.map(p=>({lat:p.lat,lng:p.lon})),
       strokeColor:'#FF9800', fillColor:'#FF9800', fillOpacity:0.25, strokeOpacity:0.9
     });
+    setStatus(`Vertex #${tempPoints.length} @ ${lat.toFixed(5)}, ${lon.toFixed(5)}`);
   }
+}
+
+// Web-component click → route to shared handler
+mapGeoEl.addEventListener('gmp-click', (e)=>{
+  handleGeoMapClick(e.detail.latLng);
 });
 
 function clearTempOverlays(){
@@ -303,7 +328,6 @@ function rnd(){ return Math.random().toString(36).slice(2); }
  * Render & overlays
  ************************/
 function drawAllOverlays(){
-  // clear
   for(const [,ov] of overlayById) destroyOverlay(ov);
   overlayById.clear();
 
@@ -339,9 +363,7 @@ function destroyOverlay(ov){
 }
 
 function renderGeofenceLists(){
-  // Dashboard list
   listEl.innerHTML='';
-  // Geofencing list
   listGeoEl.innerHTML='';
 
   for(const g of geofences){
@@ -412,12 +434,10 @@ async function pollOnce(){
 
     if (latestGPS.gps !== undefined && latestGPS.gps !== null) {
       if (typeof latestGPS.gps === "object" && !Array.isArray(latestGPS.gps)) {
-        // Case: { lat: ..., lon: ... }
         lat = parseFloat(latestGPS.gps.lat) || 0;
         lon = parseFloat(latestGPS.gps.lon) || 0;
       } 
       else if (typeof latestGPS.gps === "string") {
-        // Case: "1.2345,N,103.6789,E"
         const parts = latestGPS.gps.split(',');
         if (parts.length >= 4) {
           lat = parseFloat(parts[0]) * (parts[1] === 'S' ? -1 : 1);
@@ -425,13 +445,11 @@ async function pollOnce(){
         }
       } 
       else if (Array.isArray(latestGPS.gps)) {
-        // Case: [lat, lon]
         lat = parseFloat(latestGPS.gps[0]) || 0;
         lon = parseFloat(latestGPS.gps[1]) || 0;
       }
     } 
     else if (latestGPS.latitude !== undefined && latestGPS.longitude !== undefined) {
-      // Fallback: separate fields
       lat = parseFloat(latestGPS.latitude) || 0;
       lon = parseFloat(latestGPS.longitude) || 0;
     }
@@ -540,7 +558,6 @@ function showToast(msg, title='New Event'){
     div.classList.add('fade-out');
     setTimeout(()=> div.remove(), 300);
   }, 4000);
-  // System notification if permitted
   if('Notification' in window){
     if(Notification.permission==='granted'){
       new Notification(title, { body: msg });
@@ -553,7 +570,6 @@ function showToast(msg, title='New Event'){
 }
 
 function highlightNewEventsInList(){
-  // Add a subtle highlight to any li with data-ts > lastEventSeenTs
   const items = eventsListEl?.querySelectorAll('li[data-ts]') || [];
   items.forEach(li=>{
     const ts = Number(li.getAttribute('data-ts')||0);
@@ -564,12 +580,9 @@ function highlightNewEventsInList(){
 async function fetchAndRenderEvents(){
   try{
     const events = await fetchJSON(serverBase()+"/api/download/events");
-    // Sort by timestamp ascending
     events.sort((a,b)=> new Date(a.timestamp) - new Date(b.timestamp));
-    // Compute totals
     eventsBadgeEl.textContent = events.length;
 
-    // Detect new events
     const newOnes = events.filter(e => new Date(e.timestamp).getTime() > lastEventSeenTs);
     if(newOnes.length){
       const newest = newOnes[newOnes.length-1];
@@ -577,14 +590,11 @@ async function fetchAndRenderEvents(){
       showToast(`${newOnes.length} new ${newOnes.length>1?'events':'event'} (latest: ${newest.type || 'event'} • ${when})`, 'Events');
     }
 
-    // Render list
     renderEventsList(events);
 
-    // Track latest rendered ts
     const last = events[events.length-1];
     lastRenderedEventTs = last ? new Date(last.timestamp).getTime() : lastRenderedEventTs;
 
-    // Highlight
     highlightNewEventsInList();
   }catch(err){
     console.error('events error:', err);
@@ -594,7 +604,7 @@ async function fetchAndRenderEvents(){
 function renderEventsList(events){
   if(!eventsListEl) return;
   eventsListEl.innerHTML = '';
-  for(const ev of events.slice().reverse()){ // newest first in UI
+  for(const ev of events.slice().reverse()){
     const ts = new Date(ev.timestamp);
     const { lat, lon } = parseEventLatLon(ev.gps);
     const li = document.createElement('li');
