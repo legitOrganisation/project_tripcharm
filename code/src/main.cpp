@@ -163,6 +163,85 @@ void vibrate200ms() {
   digitalWrite(VIBRATION_PIN, LOW);
 }
 
+// ======================= Command handling =======================
+const unsigned long VIBRATION_ALERT_MS = 5UL * 60UL * 1000UL; // 5 minutes
+
+static void vibrateBeepFor(unsigned long total_ms) {
+  unsigned long start = millis();
+  while (millis() - start < total_ms) {
+    digitalWrite(VIBRATION_PIN, HIGH);
+    delay(200);
+    digitalWrite(VIBRATION_PIN, LOW);
+    delay(200);
+  }
+}
+
+static void sendClearToServer() {
+  // POST {"command":"clear"} to /api/uplaod (as requested)
+  sendAT("AT+HTTPTERM", 300);
+  sendAT("AT+HTTPINIT", 500);
+  sendAT("AT+HTTPPARA=\"CID\",1", 300);
+  sendAT("AT+HTTPPARA=\"URL\",\"http://ma8w.ddns.net:3000/api/uplaod\"", 300);
+  sendAT("AT+HTTPPARA=\"CONTENT\",\"application/json\"", 300);
+
+  String json = "{\"command\":\"clear\"}";
+  sendAT("AT+HTTPDATA=" + String(json.length()) + ",10000", 200);
+  LTEGNSS.print(json);
+  delay(400);
+
+  sendAT("AT+HTTPACTION=1", 6000); // POST
+  sendAT("AT+HTTPREAD", 800);
+  sendAT("AT+HTTPTERM", 300);
+}
+
+void checkAndExecuteCommand() {
+  // Step 1: Close any previous session
+  sendAT("AT+HTTPTERM", 300);
+
+  // Step 2: Init and set URL
+  sendAT("AT+HTTPINIT", 500);
+  sendAT("AT+HTTPPARA=\"CID\",1", 300);
+  sendAT("AT+HTTPPARA=\"URL\",\"http://ma8w.ddns.net:3000/api/download/command\"", 300);
+
+  // Step 3: Perform GET
+  String actionResp = sendAT("AT+HTTPACTION=0", 6000);
+  
+  // Extract length from +HTTPACTION
+  int idx = actionResp.indexOf("+HTTPACTION:");
+  if (idx == -1) {
+    Serial.println("No HTTPACTION in response");
+    sendAT("AT+HTTPTERM", 300);
+    return;
+  }
+  int comma2 = actionResp.indexOf(',', idx + 13); // skip "+HTTPACTION: 0,"
+  int comma3 = actionResp.indexOf(',', comma2 + 1);
+  if (comma3 == -1) {
+    Serial.println("Failed to parse HTTPACTION length");
+    sendAT("AT+HTTPTERM", 300);
+    return;
+  }
+  int len = actionResp.substring(comma3 + 1).toInt();
+  if (len <= 0) {
+    Serial.println("No data to read");
+    sendAT("AT+HTTPTERM", 300);
+    return;
+  }
+
+  // Step 4: Read exactly that many bytes
+  String readCmd = "AT+HTTPREAD=0," + String(len);
+  String readResp = sendAT(readCmd, 2000);
+
+  // Step 5: Check for vibrate command
+  if (readResp.indexOf("\"command\":\"vibrate\"") != -1) {
+    Serial.println("Command received: vibrate");
+    vibrateBeepFor(VIBRATION_ALERT_MS);
+    sendClearToServer();
+  }
+
+  // Step 6: Close HTTP
+  sendAT("AT+HTTPTERM", 300);
+}
+
 // ----------------------- Loop ---------------------------
 void loop() {
   static bool lastA = HIGH, lastB = HIGH;
@@ -199,6 +278,9 @@ void loop() {
     }
 
     uploadBatteryPercentage(pct);
+
+    // ===== NEW: poll for command and act if needed =====
+    checkAndExecuteCommand();
   }
 
   delay(100);
