@@ -10,6 +10,15 @@
 #define BATT_MIN_VOLT   3.0f
 #define BATT_MAX_VOLT   4.2f
 
+// Vibration PWM config (ESP32C3 LEDC)
+#define VIB_PWM_CH      0
+#define VIB_PWM_FREQ    2000
+#define VIB_PWM_BITS    8
+#define VIB_DUTY        80      // 0..255 steady strength
+#define VIB_RAMP_MS     400      // soft-start to reduce inrush
+#define VIB_TAP_DUTY    220      // for 200ms tap
+#define VIB_TAP_RAMP    60
+
 // ----------------------- SIM7600 on UART0 ---------------------
 HardwareSerial LTEGNSS(0);  // UART0 for SIM7600
 
@@ -123,6 +132,38 @@ void uploadBatteryPercentage(int pct) {
   sendAT("AT+HTTPTERM", 300);
 }
 
+// ----------------------- Vibration (PWM) ----------------------
+static inline void vibWrite(uint8_t duty) {
+  ledcWrite(VIB_PWM_CH, duty);
+}
+
+void vibrateContinuous_ms(unsigned long total_ms, uint8_t duty = VIB_DUTY, unsigned long ramp_ms = VIB_RAMP_MS) {
+  // soft-start
+  unsigned long t0 = millis();
+  if (ramp_ms > 0 && duty > 0) {
+    while (true) {
+      unsigned long dt = millis() - t0;
+      if (dt >= ramp_ms) break;
+      float frac = (float)dt / (float)ramp_ms;
+      uint8_t d = (uint8_t)(duty * frac);
+      vibWrite(d);
+      delay(10);
+    }
+  }
+  vibWrite(duty);
+  // hold steady
+  unsigned long start = millis();
+  while (millis() - start < total_ms) {
+    delay(50);
+  }
+  // stop
+  vibWrite(0);
+}
+
+void vibrate200ms() {
+  vibrateContinuous_ms(200, VIB_TAP_DUTY, VIB_TAP_RAMP);
+}
+
 // ----------------------- Setup ---------------------------
 unsigned long lastPostMs = 0;
 const unsigned long POST_PERIOD_MS = 10000;
@@ -133,15 +174,18 @@ void setup() {
 
   pinMode(BUTTON_A_PIN, INPUT_PULLUP);
   pinMode(BUTTON_B_PIN, INPUT_PULLUP);
-  pinMode(VIBRATION_PIN, OUTPUT);
-  digitalWrite(VIBRATION_PIN, LOW);
+
+  // PWM setup for vibration
+  ledcAttachPin(VIBRATION_PIN, VIB_PWM_CH);
+  ledcSetup(VIB_PWM_CH, VIB_PWM_FREQ, VIB_PWM_BITS);
+  vibWrite(0);
 
   analogReadResolution(12);
 
   LTEGNSS.begin(115200, SERIAL_8N1, -1, -1);
   delay(2000);
 
-  Serial.println("=== SIM7600G-H: GPS + Battery + SOS + Vibration ===");
+  Serial.println("=== SIM7600G-H: GPS + Battery + SOS + Vibration (steady) ===");
 
   sendAT("AT");
   sendAT("AT+CFUN=1", 800);
@@ -156,64 +200,27 @@ void setup() {
   Serial.println("Waiting for GPS lock...");
 }
 
-// ----------------------- Vibration helper --------------------
-void vibrate200ms() {
-  digitalWrite(VIBRATION_PIN, HIGH);
-  delay(200);
-  digitalWrite(VIBRATION_PIN, LOW);
-}
-
 // ======================= Command handling =======================
-const unsigned long VIBRATION_ALERT_MS = 5UL * 60UL * 1000UL; // 5 minutes
+const unsigned long VIBRATION_ALERT_MS = 1UL * 60UL * 1000UL; // 5 minutes
 
-static void vibrateBeepFor(unsigned long total_ms) {
-  unsigned long start = millis();
-  while (millis() - start < total_ms) {
-    digitalWrite(VIBRATION_PIN, HIGH);
-    delay(200);
-    digitalWrite(VIBRATION_PIN, LOW);
-    delay(200);
-  }
-}
-
-static void sendClearToServer() {
-  // POST {"command":"clear"} to /api/uplaod (as requested)
-  sendAT("AT+HTTPTERM", 300);
-  sendAT("AT+HTTPINIT", 500);
-  sendAT("AT+HTTPPARA=\"CID\",1", 300);
-  sendAT("AT+HTTPPARA=\"URL\",\"http://ma8w.ddns.net:3000/api/uplaod\"", 300);
-  sendAT("AT+HTTPPARA=\"CONTENT\",\"application/json\"", 300);
-
-  String json = "{\"command\":\"clear\"}";
-  sendAT("AT+HTTPDATA=" + String(json.length()) + ",10000", 200);
-  LTEGNSS.print(json);
-  delay(400);
-
-  sendAT("AT+HTTPACTION=1", 6000); // POST
-  sendAT("AT+HTTPREAD", 800);
-  sendAT("AT+HTTPTERM", 300);
-}
+// (left here, but URL had a typo and it's commented out)
+// static void sendClearToServer() { /* ... */ }
 
 void checkAndExecuteCommand() {
-  // Step 1: Close any previous session
   sendAT("AT+HTTPTERM", 300);
-
-  // Step 2: Init and set URL
   sendAT("AT+HTTPINIT", 500);
   sendAT("AT+HTTPPARA=\"CID\",1", 300);
   sendAT("AT+HTTPPARA=\"URL\",\"http://ma8w.ddns.net:3000/api/download/command\"", 300);
 
-  // Step 3: Perform GET
   String actionResp = sendAT("AT+HTTPACTION=0", 6000);
-  
-  // Extract length from +HTTPACTION
+
   int idx = actionResp.indexOf("+HTTPACTION:");
   if (idx == -1) {
     Serial.println("No HTTPACTION in response");
     sendAT("AT+HTTPTERM", 300);
     return;
   }
-  int comma2 = actionResp.indexOf(',', idx + 13); // skip "+HTTPACTION: 0,"
+  int comma2 = actionResp.indexOf(',', idx + 13);
   int comma3 = actionResp.indexOf(',', comma2 + 1);
   if (comma3 == -1) {
     Serial.println("Failed to parse HTTPACTION length");
@@ -227,18 +234,17 @@ void checkAndExecuteCommand() {
     return;
   }
 
-  // Step 4: Read exactly that many bytes
   String readCmd = "AT+HTTPREAD=0," + String(len);
   String readResp = sendAT(readCmd, 2000);
 
-  // Step 5: Check for vibrate command
   if (readResp.indexOf("\"command\":\"vibrate\"") != -1) {
-    Serial.println("Command received: vibrate");
-    vibrateBeepFor(VIBRATION_ALERT_MS);
-    sendClearToServer();
+    Serial.println("Command received: vibrate (steady)");
+    // CONTINUOUS vibration with soft-start to lower battery stress
+    vibrateContinuous_ms(VIBRATION_ALERT_MS, VIB_DUTY, VIB_RAMP_MS);
+    // Optionally clear command on server
+    // sendClearToServer();
   }
 
-  // Step 6: Close HTTP
   sendAT("AT+HTTPTERM", 300);
 }
 
@@ -279,7 +285,7 @@ void loop() {
 
     uploadBatteryPercentage(pct);
 
-    // ===== NEW: poll for command and act if needed =====
+    // Poll for command and act if needed
     checkAndExecuteCommand();
   }
 
