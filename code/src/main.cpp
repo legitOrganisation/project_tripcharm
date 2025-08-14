@@ -203,8 +203,28 @@ void setup() {
 // ======================= Command handling =======================
 const unsigned long VIBRATION_ALERT_MS = 1UL * 60UL * 1000UL; // 5 minutes
 
-// (left here, but URL had a typo and it's commented out)
-// static void sendClearToServer() { /* ... */ }
+// ---- Clear commands on server ----
+static void sendClearToServer() {
+  // Close any previous HTTP session
+  sendAT("AT+HTTPTERM", 300);
+
+  // Init HTTP and point to the correct endpoint
+  sendAT("AT+HTTPINIT", 500);
+  sendAT("AT+HTTPPARA=\"CID\",1", 300);
+  sendAT("AT+HTTPPARA=\"URL\",\"http://ma8w.ddns.net:3000/api/upload/command\"", 300);
+  sendAT("AT+HTTPPARA=\"CONTENT\",\"application/json\"", 300);
+
+  // Body: {"command":"clear"}
+  String json = "{\"command\":\"clear\"}";
+  sendAT("AT+HTTPDATA=" + String(json.length()) + ",10000", 200);
+  LTEGNSS.print(json);
+  delay(400);
+
+  // POST + read response + tidy up
+  sendAT("AT+HTTPACTION=1", 6000);  // 1 = POST
+  sendAT("AT+HTTPREAD", 800);
+  sendAT("AT+HTTPTERM", 300);
+}
 
 void checkAndExecuteCommand() {
   sendAT("AT+HTTPTERM", 300);
@@ -240,9 +260,9 @@ void checkAndExecuteCommand() {
   if (readResp.indexOf("\"command\":\"vibrate\"") != -1) {
     Serial.println("Command received: vibrate (steady)");
     // CONTINUOUS vibration with soft-start to lower battery stress
+    sendClearToServer();
     vibrateContinuous_ms(VIBRATION_ALERT_MS, VIB_DUTY, VIB_RAMP_MS);
     // Optionally clear command on server
-    // sendClearToServer();
   }
 
   sendAT("AT+HTTPTERM", 300);
